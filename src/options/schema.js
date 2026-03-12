@@ -24,6 +24,163 @@ const isLocale = (value) => {
   return false
 }
 
+const aiActionApplyModes = [
+  'manual',
+  'replace-selection',
+  'insert-content',
+  'insert-after-selection',
+  'append-content',
+  'set-content',
+  'message',
+]
+
+const aiActionSurfaces = ['bubble', 'slash']
+
+const validateAiAction = (item, index) => {
+  if (!isRecord(item)) {
+    throw new Error(`Key "ai.actions[${index}]" must be an object.`)
+  }
+
+  if (!isString(item.key) || item.key === '') {
+    throw new Error(`Key "ai.actions[${index}]": Key "key" cannot be empty.`)
+  }
+
+  if (!item.label || !isLocale(item.label)) {
+    throw new Error(
+      `Key "ai.actions[${index}]": Key "label" must be a string, or a object with "en_US" and "zh_CN" properties.`,
+    )
+  }
+
+  if (item.description !== undefined && !isLocale(item.description)) {
+    throw new Error(
+      `Key "ai.actions[${index}]": Key "description" must be a string, or a object with "en_US" and "zh_CN" properties.`,
+    )
+  }
+
+  if (item.icon !== undefined && !isString(item.icon)) {
+    throw new Error(
+      `Key "ai.actions[${index}]": Key "icon" must be a string.`,
+    )
+  }
+
+  if (item.priority !== undefined && !isNumber(item.priority)) {
+    throw new Error(
+      `Key "ai.actions[${index}]": Key "priority" must be a number.`,
+    )
+  }
+
+  if (item.divider !== undefined && typeof item.divider !== 'boolean') {
+    throw new Error(
+      `Key "ai.actions[${index}]": Key "divider" must be a boolean.`,
+    )
+  }
+
+  if (item.applyMode && !aiActionApplyModes.includes(item.applyMode)) {
+    throw new Error(
+      `Key "ai.actions[${index}]": Key "applyMode" must be one of ${JSON.stringify(aiActionApplyModes)}.`,
+    )
+  }
+
+  if (item.surfaces !== undefined) {
+    if (!Array.isArray(item.surfaces)) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "surfaces" must be an array.`,
+      )
+    }
+    if (!item.surfaces.every((surface) => aiActionSurfaces.includes(surface))) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "surfaces" must contain only one or multiple of ${JSON.stringify(aiActionSurfaces)}.`,
+      )
+    }
+  }
+
+  if (item.params !== undefined && !isRecord(item.params)) {
+    throw new Error(
+      `Key "ai.actions[${index}]": Key "params" must be an object.`,
+    )
+  }
+
+  if (item.selection !== undefined) {
+    if (!isRecord(item.selection)) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "selection" must be an object.`,
+      )
+    }
+
+    if (
+      item.selection.required !== undefined &&
+      typeof item.selection.required !== 'boolean'
+    ) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "selection.required" must be a boolean.`,
+      )
+    }
+
+    if (
+      item.selection.minLength !== undefined &&
+      !isNumber(item.selection.minLength)
+    ) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "selection.minLength" must be a number.`,
+      )
+    }
+
+    if (
+      item.selection.maxLength !== undefined &&
+      !isNumber(item.selection.maxLength)
+    ) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "selection.maxLength" must be a number.`,
+      )
+    }
+
+    if (
+      isNumber(item.selection.minLength) &&
+      isNumber(item.selection.maxLength) &&
+      item.selection.minLength > item.selection.maxLength
+    ) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "selection.minLength" cannot be greater than "selection.maxLength".`,
+      )
+    }
+  }
+
+  if (item.visibleWhen !== undefined) {
+    if (!isRecord(item.visibleWhen)) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "visibleWhen" must be an object.`,
+      )
+    }
+
+    if (
+      item.visibleWhen.nodeTypes !== undefined &&
+      !Array.isArray(item.visibleWhen.nodeTypes)
+    ) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "visibleWhen.nodeTypes" must be an array.`,
+      )
+    }
+
+    if (
+      Array.isArray(item.visibleWhen.nodeTypes) &&
+      !item.visibleWhen.nodeTypes.every((nodeType) => isString(nodeType))
+    ) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "visibleWhen.nodeTypes" must be an array of strings.`,
+      )
+    }
+
+    if (
+      item.visibleWhen.readOnly !== undefined &&
+      typeof item.visibleWhen.readOnly !== 'boolean'
+    ) {
+      throw new Error(
+        `Key "ai.actions[${index}]": Key "visibleWhen.readOnly" must be a boolean.`,
+      )
+    }
+  }
+}
+
 export default new ObjectSchema({
   editorKey: {
     merge: 'replace',
@@ -678,6 +835,62 @@ export default new ObjectSchema({
     },
     required: false,
   },
+  ai: {
+    merge: 'replace',
+    validate: 'object',
+    required: false,
+    schema: {
+      enabled: {
+        merge: 'replace',
+        validate: 'boolean',
+        required: false,
+      },
+      bubble: {
+        merge: 'replace',
+        validate: 'object',
+        required: false,
+        schema: {
+          enabled: {
+            merge: 'replace',
+            validate: 'boolean',
+            required: false,
+          },
+          label: {
+            merge: 'replace',
+            validate(value) {
+              if (!isLocale(value)) {
+                throw new Error(
+                  'Key "ai": Key "bubble.label" must be a string, or a object with "en_US" and "zh_CN" properties.',
+                )
+              }
+            },
+            required: false,
+          },
+          maxVisible: {
+            merge: 'replace',
+            validate(value) {
+              if (!isNumber(value) || value < 0) {
+                throw new Error(
+                  'Key "ai": Key "bubble.maxVisible" must be a number greater than or equal to 0.',
+                )
+              }
+            },
+            required: false,
+          },
+        },
+      },
+      actions: {
+        merge: 'replace',
+        validate(value) {
+          if (!Array.isArray(value)) {
+            throw new Error('Key "ai": Key "actions" must be an array.')
+          }
+          value.forEach((item, index) => validateAiAction(item, index))
+        },
+        required: false,
+      },
+    },
+  },
   extensions: {
     merge: 'replace',
     validate: 'array',
@@ -720,6 +933,15 @@ export default new ObjectSchema({
     validate(value) {
       if (!isFunction(value)) {
         throw new Error('Key "onFileDelete" must be a function.')
+      }
+    },
+    required: false,
+  },
+  onAiAction: {
+    merge: 'replace',
+    validate(value) {
+      if (!isFunction(value) && !isAsyncFunction(value)) {
+        throw new Error('Key "onAiAction" must be a function or async function.')
       }
     },
     required: false,

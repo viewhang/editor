@@ -69,6 +69,77 @@ const options = $ref({
     { id: 'Sherman Xu', label: 'xuzhenjun130' },
     { id: 'testuser', label: '测试用户' },
   ],
+  ai: {
+    enabled: true,
+    bubble: {
+      enabled: true,
+      label: { zh_CN: 'AI 帮我改', en_US: 'AI Rewrite' },
+    },
+    actions: [
+      {
+        key: 'polish',
+        label: { zh_CN: '润色', en_US: 'Polish' },
+        description: {
+          zh_CN: '优化表达并保持原意',
+          en_US: 'Improve clarity while preserving meaning',
+        },
+        icon: 'ai',
+        priority: 30,
+        applyMode: 'replace-selection',
+        selection: {
+          required: true,
+          minLength: 2,
+        },
+      },
+      {
+        key: 'expand',
+        label: { zh_CN: '扩写', en_US: 'Expand' },
+        description: {
+          zh_CN: '在原意基础上补充细节',
+          en_US: 'Add more detail to the selected text',
+        },
+        icon: 'ai',
+        priority: 20,
+        divider: true,
+        applyMode: 'replace-selection',
+        selection: {
+          required: true,
+          minLength: 2,
+        },
+      },
+      {
+        key: 'summarize',
+        label: { zh_CN: '总结', en_US: 'Summarize' },
+        description: {
+          zh_CN: '提炼当前选中内容的要点',
+          en_US: 'Summarize the key points of the selection',
+        },
+        icon: 'ai',
+        priority: 10,
+        applyMode: 'replace-selection',
+        selection: {
+          required: true,
+          minLength: 10,
+        },
+      },
+      {
+        key: 'shorten',
+        label: { zh_CN: '缩写', en_US: 'Shorten' },
+        description: {
+          zh_CN: '压缩内容长度，保留核心信息',
+          en_US: 'Shorten content while keeping the key idea',
+        },
+        icon: 'ai',
+        priority: 5,
+        divider: true,
+        applyMode: 'replace-selection',
+        selection: {
+          required: true,
+          minLength: 10,
+        },
+      },
+    ],
+  },
   // https://dev.umodoc.com/cn/docs/options/extensions#disableextensions
   disableExtensions: [],
   async onSave(content, page, document) {
@@ -98,6 +169,28 @@ const options = $ref({
   },
   onFileDelete(id, url, type) {
     console.log(id, url, type)
+  },
+  async onAiAction({ key, selectionText, documentText }) {
+    console.log('onAiAction', { key, selectionText, documentText })
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    if (key === 'polish') {
+      return `${selectionText}（润色示例：表达更自然、语气更专业）`
+    }
+
+    if (key === 'expand') {
+      return `${selectionText}\n\n补充说明：这里可以结合全文上下文继续展开细节和原因。`
+    }
+
+    if (key === 'summarize') {
+      return `要点总结：${selectionText.slice(0, 40)}${selectionText.length > 40 ? '...' : ''}`
+    }
+
+    if (key === 'shorten') {
+      return selectionText.slice(0, 30) + (selectionText.length > 30 ? '...' : '')
+    }
+
+    return selectionText
   },
 })
 </script>

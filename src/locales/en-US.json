@@ -778,6 +778,13 @@
     "message": "Before printing the document, please ensure that all images on the pages have finished loading. To ensure that all content is displayed correctly, please check the 'Background graphics' option in the print dialog box and set the 'Margins' to 'None.'",
     "confirm": "Print Now"
   },
+  "ai": {
+    "text": "AI Assistant",
+    "more": "More Assistants",
+    "processing": "AI is processing...",
+    "failed": "AI action failed",
+    "invalidResult": "The AI callback returned an invalid result"
+  },
   "dialog": {
     "cancel": "Cancel"
   }

@@ -175,6 +175,18 @@ export default {
   },
   user: {},
   users: [],
+  ai: {
+    enabled: false,
+    bubble: {
+      enabled: true,
+      label: {
+        zh_CN: 'AI 助手',
+        en_US: 'AI Assistant',
+      },
+      maxVisible: 3,
+    },
+    actions: [],
+  },
   extensions: [],
   disableExtensions: [],
   translations: {
@@ -199,5 +211,10 @@ export default {
     console.error(
       'The file has been deleted. Please configure the onFileDelete to completely delete the file from the server.',
     )
+  },
+  async onAiAction() {
+    return await new Promise((_, reject) => {
+      reject(new Error('Key "onAiAction": Please set the AI action handler'))
+    })
   },
 }

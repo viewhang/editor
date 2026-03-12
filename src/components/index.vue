@@ -73,6 +73,12 @@ import {
   redoHistoryRecord,
   undoHistoryRecord,
 } from '@/utils/history-record'
+import {
+  AI_DEFAULT_APPLY_MODE,
+  cloneAiAction,
+  getAiSurfaceActions,
+  normalizeAiActionResult,
+} from '@/utils/ai'
 import { getOpitons } from '@/utils/options'
 import { getSelectionNode, getSelectionText } from '@/utils/selection'
 import { shortId } from '@/utils/short-id'
@@ -136,6 +142,7 @@ const uploadFileMap = ref(new Map())
 // const bookmark = ref(false)
 const destroyed = ref(false)
 const typeWriterIsRunning = ref(false)
+const aiActionState = ref({ loading: false, key: '' })
 
 const $toolbar = useState('toolbar', options)
 const $document = useState('document', options)
@@ -157,6 +164,7 @@ provide('uploadFileMap', uploadFileMap)
 provide('destroyed', destroyed)
 provide('historyRecords', historyRecords)
 provide('typeWriterIsRunning', typeWriterIsRunning)
+provide('aiActionState', aiActionState)
 
 watch(
   () => options.value.page,
@@ -764,6 +772,220 @@ const insertContent = (
     .run()
 }
 
+const getAiActionContent = (content, format = 'text') => {
+  if (format === 'json') {
+    return content
+  }
+  return contentTransform(content)
+}
+
+const applyAiActionResult = (result, range) => {
+  if (!editor.value || !result) {
+    return false
+  }
+
+  const type = result.type || AI_DEFAULT_APPLY_MODE
+  const format = result.format || 'text'
+  const content = getAiActionContent(result.content, format)
+
+  if (
+    ['replace-selection', 'insert-content', 'insert-after-selection', 'append-content', 'set-content'].includes(
+      type,
+    ) &&
+    result.content === undefined
+  ) {
+    throw new Error(t('ai.invalidResult'))
+  }
+
+  switch (type) {
+    case 'none':
+    case 'manual':
+      return true
+    case 'replace-selection':
+      editor.value
+        .chain()
+        .focus()
+        .insertContentAt(
+          range || {
+            from: editor.value.state.selection.from,
+            to: editor.value.state.selection.to,
+          },
+          content,
+          {
+            updateSelection: true,
+          },
+        )
+        .run()
+      return true
+    case 'insert-content':
+      editor.value.chain().focus().insertContent(content).run()
+      return true
+    case 'insert-after-selection':
+      editor.value
+        .chain()
+        .focus()
+        .insertContentAt(range?.to || editor.value.state.selection.to, content, {
+          updateSelection: true,
+        })
+        .run()
+      return true
+    case 'append-content':
+      editor.value.chain().focus('end').insertContent(content).run()
+      return true
+    case 'set-content':
+      setContent(result.content, {
+        emitUpdate: result.emitUpdate !== false,
+        focusPosition: 'end',
+        focusOptions: { scrollIntoView: true },
+      })
+      return true
+    case 'message':
+      useMessage(result.theme || 'success', {
+        attach: container,
+        content: result.message || result.content || '',
+        placement: 'bottom',
+        offset: [0, -20],
+      })
+      return true
+    default:
+      throw new Error(t('ai.invalidResult'))
+  }
+}
+
+const createAiHelpers = (range, markContentHandled) => {
+  return {
+    applyResult(result) {
+      markContentHandled()
+      return applyAiActionResult(result, range)
+    },
+    replaceSelection(content, format = 'text') {
+      markContentHandled()
+      return applyAiActionResult(
+        { type: 'replace-selection', content, format },
+        range,
+      )
+    },
+    insertContent(content, format = 'text') {
+      markContentHandled()
+      return applyAiActionResult({ type: 'insert-content', content, format })
+    },
+    insertAfterSelection(content, format = 'text') {
+      markContentHandled()
+      return applyAiActionResult(
+        { type: 'insert-after-selection', content, format },
+        range,
+      )
+    },
+    appendContent(content, format = 'text') {
+      markContentHandled()
+      return applyAiActionResult({ type: 'append-content', content, format })
+    },
+    setContent(content, format = 'text') {
+      markContentHandled()
+      return applyAiActionResult({ type: 'set-content', content, format })
+    },
+    showMessage(type, params) {
+      const messageParams =
+        typeof params === 'string' ? { content: params } : params || {}
+      return useMessage(type, { attach: container, ...messageParams })
+    },
+    getSelectionText: () => (editor.value ? getSelectionText(editor.value) : ''),
+    getSelectionNode: () => (editor.value ? getSelectionNode(editor.value) : null),
+    getDocument: (format = 'text') => getContent(format),
+  }
+}
+
+const createAiActionPayload = (action, range) => {
+  let contentHandled = false
+  const selectionNode = editor.value ? getSelectionNode(editor.value) : null
+  const selectionText = editor.value ? getSelectionText(editor.value) : ''
+  const documentText = getText()
+  const documentHTML = getHTML()
+  const documentJSON = getJSON()
+  const title = options.value.document?.title || ''
+  const payload = {
+    key: action.key,
+    action: cloneAiAction(action),
+    selectionText,
+    selectionNode,
+    range: { ...range },
+    selection: {
+      text: selectionText,
+      node: selectionNode,
+      range: { ...range },
+    },
+    documentText,
+    documentHTML,
+    documentJSON,
+    document: {
+      title,
+      text: documentText,
+      html: documentHTML,
+      json: documentJSON,
+    },
+    locale: locale.value,
+    title,
+    editor: editor.value,
+    helpers: createAiHelpers(range, () => {
+      contentHandled = true
+    }),
+  }
+
+  return {
+    payload,
+    isContentHandled: () => contentHandled,
+  }
+}
+
+// AI 回调允许宿主完全接管处理流程；当宿主不手动回写时，编辑器会根据返回值自动应用结果。
+const runAiAction = async (action) => {
+  if (!editor.value) {
+    throw new Error('editor is not ready!')
+  }
+
+  if (!isRecord(action) || !action.key) {
+    throw new Error('AI action is invalid.')
+  }
+
+  if (aiActionState.value.loading) {
+    return false
+  }
+
+  const { from, to, empty } = editor.value.state.selection
+  const range = { from, to, empty }
+  const { payload, isContentHandled } = createAiActionPayload(action, range)
+
+  aiActionState.value = { loading: true, key: action.key }
+
+  try {
+    const result = await options.value.onAiAction(payload)
+    if (isContentHandled()) {
+      return result
+    }
+
+    const normalizedResult = normalizeAiActionResult(result, action)
+    if (normalizedResult) {
+      applyAiActionResult(normalizedResult, range)
+    }
+    return result
+  } catch (error) {
+    useMessage('error', {
+      attach: container,
+      content: error?.message || t('ai.failed'),
+      placement: 'bottom',
+      offset: [0, -20],
+    })
+    console.error(error)
+    return false
+  } finally {
+    aiActionState.value = { loading: false, key: '' }
+  }
+}
+
+const getAiActions = (surface = 'bubble') => {
+  return getAiSurfaceActions(options.value, surface)
+}
+
 const startTypewriter = (content, options) => {
   if (!editor.value) {
     throw new Error('editor is not ready!')
@@ -1251,6 +1473,7 @@ provide('reset', reset)
 provide('getVanillaHTML', getVanillaHTML)
 provide('undoHistory', undoHistory)
 provide('redoHistory', redoHistory)
+provide('runAiAction', runAiAction)
 // Exposing Methods
 defineExpose({
   getOptions: () => options.value,
@@ -1275,6 +1498,7 @@ defineExpose({
   getHTML,
   getJSON,
   getVanillaHTML,
+  getAiActions,
   saveContent,
   getContentExcerpt,
   getEditor: () => editor,
@@ -1312,6 +1536,8 @@ defineExpose({
   useMessage(type, pramas) {
     return useMessage(type, { attach: container, ...pramas })
   },
+  runAiAction,
+  applyAiActionResult,
 })
 </script>
 

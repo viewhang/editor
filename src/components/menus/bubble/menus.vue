@@ -158,6 +158,7 @@
       <menus-bubble-node-delete />
     </template>
   </template>
+  <menus-bubble-ai />
   <template v-if="editor?.state?.selection">
     <slot
       name="bubble_menu"
@@ -200,7 +201,7 @@ const getCurrentNode = (type) => {
     return currentNode.type.name
   }
   if (type === 'attrs') {
-    return currentNode.type.attrs
+    return currentNode.attrs
   }
 }
 </script>
