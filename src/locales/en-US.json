@@ -785,6 +785,35 @@
     "failed": "AI action failed",
     "invalidResult": "The AI callback returned an invalid result"
   },
+  "slashCommands": {
+    "noResult": "No matching command",
+    "groups": {
+      "basic": "Basic Formatting",
+      "insert": "Insert Content",
+      "media": "Media Files",
+      "page": "Page Elements"
+    },
+    "items": {
+      "paragraph": "Switch to a normal paragraph",
+      "heading1": "Insert a level 1 heading",
+      "heading2": "Insert a level 2 heading",
+      "heading3": "Insert a level 3 heading",
+      "bulletList": "Create a bulleted list",
+      "orderedList": "Create a numbered list",
+      "taskList": "Create a task list",
+      "blockquote": "Insert a quote block",
+      "codeBlock": "Insert a code block",
+      "divider": "Insert a divider",
+      "table": "Insert a 3 x 3 table",
+      "image": "Upload and insert an image",
+      "file": "Upload and insert a file",
+      "callout": "Insert a callout block",
+      "details": "Insert a collapsible details block",
+      "toc": "Insert a table of contents",
+      "pageBreak": "Insert a page break",
+      "mention": "Mention a document member"
+    }
+  },
   "dialog": {
     "cancel": "Cancel"
   }

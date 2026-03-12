@@ -140,6 +140,9 @@ const options = $ref({
       },
     ],
   },
+  slashCommands: {
+    enabled: true,
+  },
   // https://dev.umodoc.com/cn/docs/options/extensions#disableextensions
   disableExtensions: [],
   async onSave(content, page, document) {

@@ -7,6 +7,8 @@ import {
   isString,
 } from '@tool-belt/type-predicates'
 
+import { slashCommandKeys } from '@/constants/slash-commands'
+
 import defaultOptions from './config'
 
 const isLocale = (value) => {
@@ -834,6 +836,54 @@ export default new ObjectSchema({
       })
     },
     required: false,
+  },
+  slashCommands: {
+    merge: 'replace',
+    validate: 'object',
+    required: false,
+    schema: {
+      enabled: {
+        merge: 'replace',
+        validate: 'boolean',
+        required: false,
+      },
+      suggestionChar: {
+        merge: 'replace',
+        validate(value) {
+          if (!isString(value) || value.length !== 1) {
+            throw new Error(
+              'Key "slashCommands": Key "suggestionChar" must be a single character string.',
+            )
+          }
+        },
+        required: false,
+      },
+      maxItems: {
+        merge: 'replace',
+        validate(value) {
+          if (!isNumber(value) || value <= 0) {
+            throw new Error(
+              'Key "slashCommands": Key "maxItems" must be a number greater than 0.',
+            )
+          }
+        },
+        required: false,
+      },
+      items: {
+        merge: 'replace',
+        validate(value) {
+          if (!Array.isArray(value)) {
+            throw new Error('Key "slashCommands": Key "items" must be an array.')
+          }
+          if (!value.every((item) => slashCommandKeys.includes(item))) {
+            throw new Error(
+              `Key "slashCommands": Key "items" must contain only one or multiple of ${JSON.stringify(slashCommandKeys)}.`,
+            )
+          }
+        },
+        required: false,
+      },
+    },
   },
   ai: {
     merge: 'replace',

@@ -787,6 +787,35 @@
     "failed": "AI 处理失败",
     "invalidResult": "AI 回调返回结果格式不正确"
   },
+  "slashCommands": {
+    "noResult": "没有匹配的命令",
+    "groups": {
+      "basic": "基础格式",
+      "insert": "插入内容",
+      "media": "媒体文件",
+      "page": "页面元素"
+    },
+    "items": {
+      "paragraph": "切换为普通段落",
+      "heading1": "插入一级标题",
+      "heading2": "插入二级标题",
+      "heading3": "插入三级标题",
+      "bulletList": "创建无序列表",
+      "orderedList": "创建有序列表",
+      "taskList": "创建任务列表",
+      "blockquote": "插入引用块",
+      "codeBlock": "插入代码块",
+      "divider": "插入分隔线",
+      "table": "插入 3 x 3 表格",
+      "image": "上传并插入图片",
+      "file": "上传并插入文件",
+      "callout": "插入高亮块",
+      "details": "插入可展开详情块",
+      "toc": "插入目录",
+      "pageBreak": "插入分页符",
+      "mention": "提及当前文档成员"
+    }
+  },
   "dialog": {
     "cancel": "取消"
   }

@@ -175,6 +175,12 @@ export default {
   },
   user: {},
   users: [],
+  slashCommands: {
+    enabled: false,
+    suggestionChar: '/',
+    maxItems: 20,
+    items: [],
+  },
   ai: {
     enabled: false,
     bubble: {

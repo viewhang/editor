@@ -60,6 +60,8 @@ import OrderedList from './ordered-list'
 import PageBreak from './page-break'
 import SearchReplace from './search-replace'
 import Selection from './selection'
+import SlashCommand from './slash'
+import getSlashCommandSuggestion from './slash/suggestion'
 import { Table, TableCell, TableHeader, TableRow } from './table'
 import Tag from './tag'
 import TextAlign from './text-align'
@@ -204,6 +206,13 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
     TaskItem.configure({ nested: true }),
     LineHeight,
     SearchReplace,
+    SlashCommand.configure({
+      suggestion: getSlashCommandSuggestion({
+        options,
+        container,
+        uploadFileMap,
+      }),
+    }),
 
     // 插入
     File,
