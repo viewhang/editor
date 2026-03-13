@@ -44,7 +44,7 @@
             <icon name="view" />
           </div>
           <a
-            :href="attrs.url"
+            :href="resolvedUrl || attrs.url"
             :download="attrs.name"
             target="_blank"
             class="umo-action-item"
@@ -76,7 +76,7 @@
         </t-button>
       </div>
       <div v-if="previewModal" class="umo-file-preview-modal-body">
-        <iframe :src="previewURL"></iframe>
+        <iframe :src="resolvedPreviewURL || previewURL"></iframe>
       </div>
     </modal>
   </node-view-wrapper>
@@ -98,6 +98,7 @@ const editor = inject('editor')
 const options = inject('options')
 const container = inject('container')
 const uploadFileMap = inject('uploadFileMap')
+const fileResolver = inject('fileResolver')
 const containerRef = ref(null)
 
 const nodeStyle = $computed(() => {
@@ -119,6 +120,8 @@ const fileIcon = $computed(() => {
 
 let previewModal = $ref(false)
 let previewURL = $ref(null)
+let resolvedUrl = $ref(null)
+let resolvedPreviewURL = $ref(null)
 
 const getPreviewInfo = () => {
   const { preview } = options.value.file
@@ -130,10 +133,32 @@ const getPreviewInfo = () => {
 }
 const setPreviewURL = () => {
   const match = getPreviewInfo()
-  if (match?.url.includes('{url}')) {
+  const targetUrl = resolvedUrl || attrs.url
+  if (match?.url.includes('{url}') && targetUrl) {
     previewURL = match.url
-      .replace(/{{url}}/g, encodeURIComponent(attrs.url))
-      .replace(/{url}/g, attrs.url)
+      .replace(/{{url}}/g, encodeURIComponent(targetUrl))
+      .replace(/{url}/g, targetUrl)
+    resolvedPreviewURL = previewURL
+  }
+}
+
+const resolveFileURL = async (force = false) => {
+  if (!attrs.url || attrs.uploaded === false) {
+    resolvedUrl = attrs.url
+    setPreviewURL()
+    return
+  }
+  try {
+    const result = await fileResolver.resolve(
+      { ...attrs, nodeType: 'file' },
+      { force, reason: 'display' },
+    )
+    resolvedUrl = result.url || attrs.url
+    setPreviewURL()
+  } catch (error) {
+    resolvedUrl = attrs.url
+    setPreviewURL()
+    useMessage('error', { attach: container, content: error.message })
   }
 }
 
@@ -155,13 +180,29 @@ onMounted(async () => {
       useMessage('error', { attach: container, content: e.message })
     }
   }
-  setPreviewURL()
+  await resolveFileURL()
 })
+
+watch(
+  () => attrs.url,
+  async () => {
+    await resolveFileURL()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => resolvedUrl,
+  () => {
+    setPreviewURL()
+  },
+)
 
 onBeforeUnmount(() => {
   setTimeout(() => {
     if (editor.value.isDestroyed) return
-    options.value.onFileDelete(attrs.id, attrs.src, `image:${attrs.type}`)
+    fileResolver.clear({ ...attrs, nodeType: 'file' })
+    options.value.onFileDelete(attrs.id, attrs.url, `file:${attrs.type}`)
   }, 500)
 })
 
@@ -174,7 +215,7 @@ const togglePreview = () => {
   const onPreview = match?.onPreview
   if (isFunction(onPreview) || isAsyncFunction(onPreview)) {
     try {
-      onPreview(attrs)
+      onPreview({ ...attrs, resolvedUrl: resolvedUrl || attrs.url })
       return
     } catch {}
   }
@@ -186,7 +227,7 @@ const togglePreview = () => {
     type: attrs.previewType,
     attrs: {
       ...attrs,
-      src: attrs.url,
+      src: resolvedUrl || attrs.url,
     },
   })
 }

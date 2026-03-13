@@ -12,7 +12,7 @@
       <audio
         v-show="playerShow"
         ref="audioRef"
-        :src="attrs.src"
+        :src="resolvedSrc || attrs.src"
         controls
         crossorigin="anonymous"
         preload="metadata"
@@ -35,12 +35,15 @@ const { getPos } = props
 const options = inject('options')
 const editor = inject('editor')
 const uploadFileMap = inject('uploadFileMap')
+const container = inject('container')
+const fileResolver = inject('fileResolver')
 
 const containerRef = ref(null)
 const audioRef = $ref(null)
 let playerInstance = $ref(null)
 let playerShow = $ref(false)
 let selected = $ref(false)
+let resolvedSrc = $ref(null)
 
 const nodeStyle = $computed(() => {
   const { nodeAlign, margin } = attrs
@@ -55,14 +58,28 @@ const nodeStyle = $computed(() => {
   }
 })
 
-onMounted(async () => {
-  playerInstance = await player(audioRef, options.value.cdnUrl)
-  playerInstance.on('ready', () => (playerShow = true))
-  if (attrs.uploaded || !attrs.id) {
+const resolveAudioSource = async (force = false) => {
+  if (!attrs.src || attrs.uploaded === false) {
+    resolvedSrc = attrs.src
     return
   }
   try {
-    if (uploadFileMap.value.has(attrs.id)) {
+    const result = await fileResolver.resolve(
+      { ...attrs, nodeType: 'audio' },
+      { force, reason: 'display' },
+    )
+    resolvedSrc = result.url || attrs.src
+  } catch (error) {
+    resolvedSrc = attrs.src
+    useMessage('error', { attach: container, content: error.message })
+  }
+}
+
+onMounted(async () => {
+  playerInstance = await player(audioRef, options.value.cdnUrl)
+  playerInstance.on('ready', () => (playerShow = true))
+  try {
+    if (!attrs.uploaded && attrs.id && uploadFileMap.value.has(attrs.id)) {
       const file = uploadFileMap.value.get(attrs.id)
       const result = await options.value?.onFileUpload?.(file)
       const { id, url } = result
@@ -76,15 +93,25 @@ onMounted(async () => {
       uploadFileMap.value.delete(attrs.id)
     }
   } catch (error) {
-    useMessage('error', error.message)
+    useMessage('error', { attach: container, content: error.message })
   }
+  await resolveAudioSource()
 })
+
+watch(
+  () => attrs.src,
+  async () => {
+    await resolveAudioSource()
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   playerInstance?.destroy?.()
   setTimeout(() => {
     if (editor.value.isDestroyed) return
-    options.value.onFileDelete(attrs.id, attrs.src, `image:${attrs.type}`)
+    fileResolver.clear({ ...attrs, nodeType: 'audio' })
+    options.value.onFileDelete(attrs.id, attrs.src, `audio:${attrs.type}`)
   }, 500)
 })
 

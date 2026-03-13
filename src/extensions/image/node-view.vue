@@ -68,7 +68,7 @@
       >
         <img
           ref="imageRef"
-          :src="attrs.src"
+          :src="imageSrc"
           :class="{ 'not-equal-proportion': !attrs.equalProportion }"
           :style="{
             transform:
@@ -102,11 +102,14 @@ const container = inject('container')
 const editor = inject('editor')
 const uploadFileMap = inject('uploadFileMap')
 const imageViewer = inject('imageViewer')
+const fileResolver = inject('fileResolver')
 const props = defineProps(nodeViewProps)
 const attrs = $computed(() => props.node.attrs)
 const { updateAttributes, getPos } = props
 const options = inject('options')
-const { isLoading, error } = useImage({ src: attrs.src })
+let resolvedSrc = $ref(null)
+const imageSrc = $computed(() => resolvedSrc || attrs.src)
+const { isLoading, error } = useImage({ src: imageSrc })
 
 const containerRef = ref(null)
 const imageRef = $ref(null)
@@ -152,6 +155,31 @@ const uploadImage = async () => {
     })
   }
 }
+
+// 运行时解析图片访问地址，避免把短期 token 固化到文档内容里。
+const resolveImageSource = async (force = false) => {
+  if (!attrs.src || attrs.uploaded === false) {
+    resolvedSrc = attrs.src
+    return
+  }
+  try {
+    const result = await fileResolver.resolve(
+      {
+        ...attrs,
+        nodeType: attrs.inline ? 'inlineImage' : 'image',
+      },
+      { force, reason: 'display' },
+    )
+    resolvedSrc = result.url || attrs.src
+  } catch (error) {
+    resolvedSrc = attrs.src
+    useMessage('error', {
+      attach: container,
+      content: error.message,
+    })
+  }
+}
+
 const onLoad = async () => {
   // updateAttributes({ error: false })
   const { clientWidth = 1, clientHeight = 1 } = imageRef
@@ -260,6 +288,7 @@ watch(
 watch(
   () => attrs.src,
   async (src) => {
+    resolvedSrc = src
     if (attrs.uploaded === false && !error.value) {
       if (src?.startsWith('data:image')) {
         const id = attrs.id || shortId(10)
@@ -274,7 +303,9 @@ watch(
       }
       await nextTick()
       uploadImage()
+      return
     }
+    await resolveImageSource()
   },
   { immediate: true },
 )
@@ -286,13 +317,24 @@ watch(
       { error: err?.type ? err.type === 'error' : false },
       getPos(),
     )
+    if (err?.type === 'error' && attrs.uploaded !== false) {
+      resolveImageSource(true)
+    }
   },
 )
 
 onBeforeUnmount(() => {
   setTimeout(() => {
     if (editor.value.isDestroyed) return
-    options.value.onFileDelete(attrs.id, attrs.src, `image:${attrs.type}`)
+    fileResolver.clear({
+      ...attrs,
+      nodeType: attrs.inline ? 'inlineImage' : 'image',
+    })
+    options.value.onFileDelete(
+      attrs.id,
+      attrs.src,
+      `${attrs.inline ? 'inlineImage' : 'image'}:${attrs.type}`,
+    )
   }, 500)
 })
 </script>

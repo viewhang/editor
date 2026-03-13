@@ -170,6 +170,13 @@ const options = $ref({
       size: file.size,
     }
   },
+  async onFileLoad(file) {
+    console.log('onFileLoad', file)
+    return {
+      url: file.rawUrl,
+      expiresAt: Date.now() + 60 * 1000,
+    }
+  },
   onFileDelete(id, url, type) {
     console.log(id, url, type)
   },

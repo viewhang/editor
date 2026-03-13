@@ -79,6 +79,7 @@ import {
   getAiSurfaceActions,
   normalizeAiActionResult,
 } from '@/utils/ai'
+import { createFileResolver } from '@/utils/file-resolver'
 import { getOpitons } from '@/utils/options'
 import { getSelectionNode, getSelectionText } from '@/utils/selection'
 import { shortId } from '@/utils/short-id'
@@ -139,6 +140,7 @@ const printing = ref(false)
 const fullscreen = ref(false)
 const exportFile = ref({ pdf: false, image: false })
 const uploadFileMap = ref(new Map())
+const fileResolver = createFileResolver({ options })
 // const bookmark = ref(false)
 const destroyed = ref(false)
 const typeWriterIsRunning = ref(false)
@@ -160,6 +162,7 @@ provide('printing', printing)
 provide('fullscreen', fullscreen)
 provide('exportFile', exportFile)
 provide('uploadFileMap', uploadFileMap)
+provide('fileResolver', fileResolver)
 // provide('bookmark', bookmark)
 provide('destroyed', destroyed)
 provide('historyRecords', historyRecords)

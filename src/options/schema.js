@@ -987,6 +987,15 @@ export default new ObjectSchema({
     },
     required: false,
   },
+  onFileLoad: {
+    merge: 'replace',
+    validate(value) {
+      if (!isFunction(value) && !isAsyncFunction(value)) {
+        throw new Error('Key "onFileLoad" must be a function or async function.')
+      }
+    },
+    required: false,
+  },
   onAiAction: {
     merge: 'replace',
     validate(value) {

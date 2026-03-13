@@ -30,7 +30,7 @@
         <video
           v-show="playerShow"
           ref="videoRef"
-          :src="attrs.src"
+          :src="resolvedSrc || attrs.src"
           preload="metadata"
           controls
           crossorigin="anonymous"
@@ -60,6 +60,7 @@ const options = inject('options')
 const editor = inject('editor')
 const container = inject('container')
 const uploadFileMap = inject('uploadFileMap')
+const fileResolver = inject('fileResolver')
 
 const containerRef = ref(null)
 let selected = $ref(false)
@@ -68,6 +69,7 @@ let playerInstance = $ref(null)
 let playerShow = $ref(false)
 let maxWidth = $ref(0)
 let maxHeight = $ref(0)
+let resolvedSrc = $ref(null)
 
 const nodeStyle = $computed(() => {
   const { nodeAlign, margin } = attrs
@@ -82,14 +84,28 @@ const nodeStyle = $computed(() => {
   }
 })
 
+const resolveVideoSource = async (force = false) => {
+  if (!attrs.src || attrs.uploaded === false) {
+    resolvedSrc = attrs.src
+    return
+  }
+  try {
+    const result = await fileResolver.resolve(
+      { ...attrs, nodeType: 'video' },
+      { force, reason: 'display' },
+    )
+    resolvedSrc = result.url || attrs.src
+  } catch (error) {
+    resolvedSrc = attrs.src
+    useMessage('error', { attach: container, content: error.message })
+  }
+}
+
 onMounted(async () => {
   await nextTick()
   playerInstance = await player(videoRef, options.value.cdnUrl)
   playerInstance.on('ready', () => (playerShow = true))
-  if (attrs.uploaded || !attrs.id) {
-    return
-  }
-  if (uploadFileMap.value.has(attrs.id)) {
+  if (!attrs.uploaded && attrs.id && uploadFileMap.value.has(attrs.id)) {
     try {
       const file = uploadFileMap.value.get(attrs.id)
       const result = await options.value?.onFileUpload?.(file)
@@ -106,6 +122,7 @@ onMounted(async () => {
       useMessage('error', { attach: container, content: e.message })
     }
   }
+  await resolveVideoSource()
 })
 const onLoad = () => {
   if (attrs.width === null) {
@@ -127,11 +144,20 @@ const onResize = ({ width, height }) => {
   updateAttributes({ width, height })
 }
 
+watch(
+  () => attrs.src,
+  async () => {
+    await resolveVideoSource()
+  },
+  { immediate: true },
+)
+
 onBeforeUnmount(() => {
   playerInstance?.destroy?.()
   setTimeout(() => {
     if (editor.value.isDestroyed) return
-    options.value.onFileDelete(attrs.id, attrs.src, `image:${attrs.type}`)
+    fileResolver.clear({ ...attrs, nodeType: 'video' })
+    options.value.onFileDelete(attrs.id, attrs.src, `video:${attrs.type}`)
   }, 500)
 })
 

@@ -213,6 +213,17 @@ export default {
       reject(new Error('Key "onFileUpload": Please set the upload method'))
     })
   },
+  async onFileLoad(file) {
+    return await new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error('File not found'))
+        return
+      }
+      resolve({
+        url: file.src || file.url,
+      })
+    })
+  },
   onFileDelete() {
     console.error(
       'The file has been deleted. Please configure the onFileDelete to completely delete the file from the server.',
