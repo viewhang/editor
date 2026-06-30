@@ -795,6 +795,7 @@
     "more": "More Assistants",
     "processing": "AI is processing...",
     "failed": "AI action failed",
+    "exceedMaxlength": "The selected text is too long.",
     "invalidResult": "The AI callback returned an invalid result"
   },
   "slashCommands": {

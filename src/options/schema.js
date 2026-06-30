@@ -7,9 +7,9 @@ import {
   isString,
 } from '@tool-belt/type-predicates'
 
-import { slashCommandKeys } from '@/constants/slash-commands'
+import { slashCommandKeys } from '../constants/slash-commands.js'
 
-import defaultOptions from './config'
+import defaultOptions from './config/index.js'
 
 const isLocale = (value) => {
   if (isString(value) && value.length > 0) {
@@ -24,163 +24,6 @@ const isLocale = (value) => {
     return true
   }
   return false
-}
-
-const aiActionApplyModes = [
-  'manual',
-  'replace-selection',
-  'insert-content',
-  'insert-after-selection',
-  'append-content',
-  'set-content',
-  'message',
-]
-
-const aiActionSurfaces = ['bubble', 'slash']
-
-const validateAiAction = (item, index) => {
-  if (!isRecord(item)) {
-    throw new Error(`Key "ai.actions[${index}]" must be an object.`)
-  }
-
-  if (!isString(item.key) || item.key === '') {
-    throw new Error(`Key "ai.actions[${index}]": Key "key" cannot be empty.`)
-  }
-
-  if (!item.label || !isLocale(item.label)) {
-    throw new Error(
-      `Key "ai.actions[${index}]": Key "label" must be a string, or a object with "en_US" and "zh_CN" properties.`,
-    )
-  }
-
-  if (item.description !== undefined && !isLocale(item.description)) {
-    throw new Error(
-      `Key "ai.actions[${index}]": Key "description" must be a string, or a object with "en_US" and "zh_CN" properties.`,
-    )
-  }
-
-  if (item.icon !== undefined && !isString(item.icon)) {
-    throw new Error(
-      `Key "ai.actions[${index}]": Key "icon" must be a string.`,
-    )
-  }
-
-  if (item.priority !== undefined && !isNumber(item.priority)) {
-    throw new Error(
-      `Key "ai.actions[${index}]": Key "priority" must be a number.`,
-    )
-  }
-
-  if (item.divider !== undefined && typeof item.divider !== 'boolean') {
-    throw new Error(
-      `Key "ai.actions[${index}]": Key "divider" must be a boolean.`,
-    )
-  }
-
-  if (item.applyMode && !aiActionApplyModes.includes(item.applyMode)) {
-    throw new Error(
-      `Key "ai.actions[${index}]": Key "applyMode" must be one of ${JSON.stringify(aiActionApplyModes)}.`,
-    )
-  }
-
-  if (item.surfaces !== undefined) {
-    if (!Array.isArray(item.surfaces)) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "surfaces" must be an array.`,
-      )
-    }
-    if (!item.surfaces.every((surface) => aiActionSurfaces.includes(surface))) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "surfaces" must contain only one or multiple of ${JSON.stringify(aiActionSurfaces)}.`,
-      )
-    }
-  }
-
-  if (item.params !== undefined && !isRecord(item.params)) {
-    throw new Error(
-      `Key "ai.actions[${index}]": Key "params" must be an object.`,
-    )
-  }
-
-  if (item.selection !== undefined) {
-    if (!isRecord(item.selection)) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "selection" must be an object.`,
-      )
-    }
-
-    if (
-      item.selection.required !== undefined &&
-      typeof item.selection.required !== 'boolean'
-    ) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "selection.required" must be a boolean.`,
-      )
-    }
-
-    if (
-      item.selection.minLength !== undefined &&
-      !isNumber(item.selection.minLength)
-    ) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "selection.minLength" must be a number.`,
-      )
-    }
-
-    if (
-      item.selection.maxLength !== undefined &&
-      !isNumber(item.selection.maxLength)
-    ) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "selection.maxLength" must be a number.`,
-      )
-    }
-
-    if (
-      isNumber(item.selection.minLength) &&
-      isNumber(item.selection.maxLength) &&
-      item.selection.minLength > item.selection.maxLength
-    ) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "selection.minLength" cannot be greater than "selection.maxLength".`,
-      )
-    }
-  }
-
-  if (item.visibleWhen !== undefined) {
-    if (!isRecord(item.visibleWhen)) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "visibleWhen" must be an object.`,
-      )
-    }
-
-    if (
-      item.visibleWhen.nodeTypes !== undefined &&
-      !Array.isArray(item.visibleWhen.nodeTypes)
-    ) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "visibleWhen.nodeTypes" must be an array.`,
-      )
-    }
-
-    if (
-      Array.isArray(item.visibleWhen.nodeTypes) &&
-      !item.visibleWhen.nodeTypes.every((nodeType) => isString(nodeType))
-    ) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "visibleWhen.nodeTypes" must be an array of strings.`,
-      )
-    }
-
-    if (
-      item.visibleWhen.readOnly !== undefined &&
-      typeof item.visibleWhen.readOnly !== 'boolean'
-    ) {
-      throw new Error(
-        `Key "ai.actions[${index}]": Key "visibleWhen.readOnly" must be a boolean.`,
-      )
-    }
-  }
 }
 
 export default new ObjectSchema({
@@ -837,6 +680,82 @@ export default new ObjectSchema({
     },
     required: false,
   },
+  viewer: {
+    merge: 'assign',
+    validate: 'object',
+    required: false,
+    schema: {
+      enabled: { merge: 'replace', validate: 'boolean', required: false },
+      showToolbar: { merge: 'replace', validate: 'boolean', required: false },
+      showStatusbar: { merge: 'replace', validate: 'boolean', required: false },
+      allowTextSelection: {
+        merge: 'replace',
+        validate: 'boolean',
+        required: false,
+      },
+    },
+  },
+  comments: {
+    merge: 'assign',
+    validate: 'object',
+    required: false,
+    schema: {
+      enabled: { merge: 'replace', validate: 'boolean', required: false },
+      selection: {
+        merge: 'assign',
+        validate: 'object',
+        required: false,
+        schema: {
+          enabled: { merge: 'replace', validate: 'boolean', required: false },
+          label: {
+            merge: 'replace',
+            validate(value) {
+              if (!isLocale(value)) {
+                throw new Error(
+                  'Key "comments": Key "selection.label" must be a string, or a object with "en_US" and "zh_CN" properties.',
+                )
+              }
+            },
+            required: false,
+          },
+          contextLength: {
+            merge: 'replace',
+            validate(value) {
+              if (!isNumber(value) || value <= 0) {
+                throw new Error(
+                  'Key "comments": Key "selection.contextLength" must be a number greater than 0.',
+                )
+              }
+            },
+            required: false,
+          },
+        },
+      },
+      anchors: { merge: 'replace', validate: 'array', required: false },
+      onSelectionComment: {
+        merge: 'replace',
+        validate(value) {
+          if (value !== undefined && !isFunction(value)) {
+            throw new Error(
+              'Key "comments": Key "onSelectionComment" must be a function.',
+            )
+          }
+        },
+        required: false,
+      },
+      onAnchorClick: {
+        merge: 'replace',
+        validate(value) {
+          if (value !== undefined && !isFunction(value)) {
+            throw new Error(
+              'Key "comments": Key "onAnchorClick" must be a function.',
+            )
+          }
+        },
+        required: false,
+      },
+    },
+  },
   slashCommands: {
     merge: 'replace',
     validate: 'object',
@@ -890,13 +809,8 @@ export default new ObjectSchema({
     validate: 'object',
     required: false,
     schema: {
-      enabled: {
-        merge: 'replace',
-        validate: 'boolean',
-        required: false,
-      },
-      bubble: {
-        merge: 'replace',
+      assistant: {
+        merge: 'assign',
         validate: 'object',
         required: false,
         schema: {
@@ -905,39 +819,77 @@ export default new ObjectSchema({
             validate: 'boolean',
             required: false,
           },
-          label: {
+          maxlength: {
             merge: 'replace',
             validate(value) {
-              if (!isLocale(value)) {
+              if (!isNumber(value) || !Number.isInteger(value) || value <= 0) {
                 throw new Error(
-                  'Key "ai": Key "bubble.label" must be a string, or a object with "en_US" and "zh_CN" properties.',
+                  'Key "assistant": Key "maxlength" must be a number.',
                 )
               }
             },
             required: false,
           },
-          maxVisible: {
+          placeholder: {
             merge: 'replace',
             validate(value) {
-              if (!isNumber(value) || value < 0) {
+              if (value !== undefined && !isLocale(value)) {
                 throw new Error(
-                  'Key "ai": Key "bubble.maxVisible" must be a number greater than or equal to 0.',
+                  'Key "assistant": Key "placeholder" must be string, or a object with "en_US" and "zh_CN" properties.',
                 )
               }
             },
             required: false,
           },
+          commands: {
+            merge: 'replace',
+            validate(value) {
+              if (value && !Array.isArray(value)) {
+                throw new Error('Key "assistant": Key "commands" must be a array.')
+              }
+              if (!value) {
+                return
+              }
+              value.forEach((item, index) => {
+                if (!isRecord(item)) {
+                  throw new Error(
+                    `Key "assistant": Key "commands[${index}]" must be a object.`,
+                  )
+                }
+                if (item.label === undefined && item.value === undefined) {
+                  throw new Error(
+                    `Key "assistant": Key "commands[${index}]" must have "label" or "value".`,
+                  )
+                }
+                if (item.label !== undefined && !isLocale(item.label)) {
+                  throw new Error(
+                    `Key "assistant": Key "commands[${index}]": Key "label" must be string, or a object with "en_US" and "zh_CN" properties.`,
+                  )
+                }
+                if (item.value !== undefined && !isLocale(item.value)) {
+                  throw new Error(
+                    `Key "assistant": Key "commands[${index}]": Key "value" must be string, or a object with "en_US" and "zh_CN" properties.`,
+                  )
+                }
+                if (item.autoSend !== undefined && typeof item.autoSend !== 'boolean') {
+                  throw new Error(
+                    `Key "assistant": Key "commands[${index}]": Key "autoSend" must be a boolean.`,
+                  )
+                }
+              })
+            },
+            required: false,
+          },
+          onMessage: {
+            merge: 'replace',
+            validate(value) {
+              if (!isFunction(value) && !isAsyncFunction(value)) {
+                throw new Error('Key "onMessage" must be a function.')
+              }
+            },
+            required: false,
+          },
         },
-      },
-      actions: {
-        merge: 'replace',
-        validate(value) {
-          if (!Array.isArray(value)) {
-            throw new Error('Key "ai": Key "actions" must be an array.')
-          }
-          value.forEach((item, index) => validateAiAction(item, index))
-        },
-        required: false,
       },
     },
   },
@@ -1001,15 +953,6 @@ export default new ObjectSchema({
     validate(value) {
       if (!isFunction(value) && !isAsyncFunction(value)) {
         throw new Error('Key "onFileLoad" must be a function or async function.')
-      }
-    },
-    required: false,
-  },
-  onAiAction: {
-    merge: 'replace',
-    validate(value) {
-      if (!isFunction(value) && !isAsyncFunction(value)) {
-        throw new Error('Key "onAiAction" must be a function or async function.')
       }
     },
     required: false,

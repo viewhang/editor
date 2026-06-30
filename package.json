@@ -36,11 +36,14 @@
     "url": "https://github.com/umodoc/editor.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "types"
   ],
   "type": "module",
+  "types": "./types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./types/index.d.ts",
       "import": "./dist/umo-editor.js"
     },
     "./style": {
@@ -52,8 +55,9 @@
     "dev": "vite --port 9000 --open --force",
     "format": "oxfmt --write .",
     "lint": "oxlint --fix src",
+    "test": "node --experimental-specifier-resolution=node --test test/*.test.mjs",
     "analyzer": "vite-bundle-visualizer",
-    "prepare": "husky",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

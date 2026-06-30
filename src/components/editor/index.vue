@@ -18,7 +18,7 @@
   />
   <template v-if="editor && !destroyed">
     <menus-block
-      v-if="options.document?.enableBlockMenu"
+      v-if="options.document?.enableBlockMenu && !isViewerMode"
       v-show="
         page.zoomLevel === 100 && !page.preview?.enabled && editor.isEditable
       "
@@ -48,6 +48,7 @@ const page = inject('page')
 const options = inject('options')
 const uploadFileMap = inject('uploadFileMap')
 const historyRecords = inject('historyRecords')
+const isViewerMode = inject('isViewerMode', computed(() => false))
 
 const $document = useState('document', options)
 
@@ -120,7 +121,7 @@ const handleEditorKeyDown = (view, event) => {
 }
 
 const editorInstance = new Editor({
-  editable: !options.value.document?.readOnly,
+  editable: !options.value.document?.readOnly && !options.value.viewer?.enabled,
   autofocus: options.value.document?.autofocus,
   content: contentTransform(options.value.document?.content),
   enableInputRules: inputAndPasteRules(options),

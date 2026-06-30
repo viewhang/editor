@@ -3,6 +3,7 @@
     v-if="editor?.getAttributes('file')?.uploaded"
     ico="download"
     :text="t('bubbleMenu.file.download')"
+    force-enabled
     @menu-click="downloadFile"
   />
 </template>

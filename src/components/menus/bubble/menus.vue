@@ -1,12 +1,19 @@
 <template>
+  <menus-bubble-comment />
   <template v-if="is('link') && attrs('link').href">
     <menus-bubble-link-open />
     <div class="umo-bubble-menu-divider"></div>
-    <menus-toolbar-insert-link ico="edit" :text="t('insert.link.edit')" />
+    <menus-toolbar-insert-link
+      v-if="!isViewerMode"
+      ico="edit"
+      :text="t('insert.link.edit')"
+    />
     <menus-bubble-link-copy />
-    <menus-bubble-link-unlink />
-    <div class="umo-bubble-menu-divider"></div>
-    <menus-bubble-node-delete />
+    <menus-bubble-link-unlink v-if="!isViewerMode" />
+    <template v-if="!isViewerMode">
+      <div class="umo-bubble-menu-divider"></div>
+      <menus-bubble-node-delete />
+    </template>
   </template>
   <template
     v-else-if="
@@ -14,52 +21,59 @@
       (is('inlineImage') && !attrs('inlineImage').error)
     "
   >
-    <menus-toolbar-base-align-left />
-    <menus-toolbar-base-align-center />
-    <menus-toolbar-base-align-right />
-    <div class="umo-bubble-menu-divider"></div>
-    <menus-bubble-image-flip />
-    <menus-bubble-image-proportion />
-    <menus-bubble-image-draggable />
-    <menus-bubble-image-rotate />
-    <menus-bubble-image-reset />
-    <div class="umo-bubble-menu-divider"></div>
+    <template v-if="!isViewerMode">
+      <menus-toolbar-base-align-left />
+      <menus-toolbar-base-align-center />
+      <menus-toolbar-base-align-right />
+      <div class="umo-bubble-menu-divider"></div>
+      <menus-bubble-image-flip />
+      <menus-bubble-image-proportion />
+      <menus-bubble-image-draggable />
+      <menus-bubble-image-rotate />
+      <menus-bubble-image-reset />
+      <div class="umo-bubble-menu-divider"></div>
+    </template>
     <menus-bubble-image-preview
       v-if="
         attrs('image')?.type?.startsWith('image') ||
         attrs('inlineImage')?.type?.startsWith('image')
       "
     />
-    <menus-bubble-image-edit />
+    <menus-bubble-image-edit v-if="!isViewerMode" />
     <menus-bubble-image-open />
     <menus-bubble-node-duplicate
-      v-if="is('image') && attrs('image').draggable"
+      v-if="!isViewerMode && is('image') && attrs('image').draggable"
     />
     <menus-bubble-node-tofile
       v-if="
+        !isViewerMode &&
         attrs('image').type.startsWith('image') &&
         attrs('image').previewType !== null &&
         attrs('inlineImage').previewType !== null
       "
     />
-    <menus-bubble-image-convert />
-    <div class="umo-bubble-menu-divider"></div>
-    <menus-bubble-node-delete />
+    <menus-bubble-image-convert v-if="!isViewerMode" />
+    <template v-if="!isViewerMode">
+      <div class="umo-bubble-menu-divider"></div>
+      <menus-bubble-node-delete />
+    </template>
   </template>
   <template
     v-else-if="is('video') || is('audio') || is('file') || is('iframe')"
   >
-    <menus-toolbar-base-align-left />
-    <menus-toolbar-base-align-center />
-    <menus-toolbar-base-align-right />
-    <template v-if="is('file')">
+    <template v-if="!isViewerMode">
+      <menus-toolbar-base-align-left />
+      <menus-toolbar-base-align-center />
+      <menus-toolbar-base-align-right />
+    </template>
+    <template v-if="!isViewerMode && is('file')">
       <menus-bubble-file-width />
     </template>
-    <div class="umo-bubble-menu-divider"></div>
+    <div v-if="!isViewerMode" class="umo-bubble-menu-divider"></div>
     <template v-if="is('iframe')">
-      <menus-bubble-webpage-clickable />
+      <menus-bubble-webpage-clickable v-if="!isViewerMode" />
       <menus-toolbar-insert-web-page
-        v-if="!disable('web-page')"
+        v-if="!isViewerMode && !disable('web-page')"
         ico="edit"
         :page-type="attrs('iframe')?.type"
         :page-url="attrs('iframe')?.src"
@@ -70,10 +84,10 @@
     <menus-bubble-file-download
       v-if="is('file') || is('video') || is('audio')"
     />
-    <menus-bubble-node-tofile v-if="is('video') || is('audio')" />
-    <menus-bubble-node-delete />
+    <menus-bubble-node-tofile v-if="!isViewerMode && (is('video') || is('audio'))" />
+    <menus-bubble-node-delete v-if="!isViewerMode" />
   </template>
-  <template v-else-if="is('table')">
+  <template v-else-if="!isViewerMode && is('table')">
     <menus-toolbar-table-cells-align />
     <menus-toolbar-table-cells-background />
     <!-- <menus-toolbar-table-border-color  /> -->
@@ -89,7 +103,7 @@
     <menus-toolbar-table-merge-cells />
     <menus-toolbar-table-split-cell />
   </template>
-  <template v-else-if="is('tag')">
+  <template v-else-if="!isViewerMode && is('tag')">
     <menus-bubble-tag-input />
     <menus-bubble-tag-builtin />
     <div class="umo-bubble-menu-divider"></div>
@@ -98,7 +112,7 @@
     <div class="umo-bubble-menu-divider"></div>
     <menus-bubble-tag-delete />
   </template>
-  <template v-else-if="is('echarts')">
+  <template v-else-if="!isViewerMode && is('echarts')">
     <menus-toolbar-base-align-left />
     <menus-toolbar-base-align-center />
     <menus-toolbar-base-align-right />
@@ -106,7 +120,7 @@
     <menus-toolbar-tools-echarts ico="setting" />
     <menus-bubble-node-delete />
   </template>
-  <template v-else-if="is('optionBox')">
+  <template v-else-if="!isViewerMode && is('optionBox')">
     <menus-toolbar-base-font-size :select="false" />
     <menus-toolbar-base-bold />
     <menus-toolbar-base-italic />
@@ -118,7 +132,7 @@
     <div class="umo-bubble-menu-divider"></div>
     <menus-bubble-node-delete />
   </template>
-  <template v-else-if="is('blockMath') || is('inlineMath')">
+  <template v-else-if="!isViewerMode && (is('blockMath') || is('inlineMath'))">
     <menus-bubble-math />
     <menus-bubble-node-delete />
   </template>
@@ -133,7 +147,7 @@
   >
     <!-- <menus-bubble-node-delete /> -->
   </template>
-  <template v-else>
+  <template v-else-if="!isViewerMode">
     <menus-toolbar-base-font-size :select="false" />
     <div
       v-if="!disable('font-size-increase') || !disable('font-size-decrease')"
@@ -160,7 +174,7 @@
       <menus-bubble-node-delete />
     </template>
   </template>
-  <menus-bubble-ai />
+  <menus-bubble-ai v-if="!isViewerMode" />
   <template v-if="editor?.state?.selection">
     <slot
       name="bubble_menu"
@@ -175,6 +189,7 @@ import { CellSelection } from '@tiptap/pm/tables'
 
 const editor = inject('editor')
 const options = inject('options')
+const isViewerMode = inject('isViewerMode', computed(() => false))
 
 const disable = (name) => {
   return options.value.disableExtensions.includes(name)

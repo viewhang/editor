@@ -1,5 +1,56 @@
 @import '@/assets/styles/_mixins.less';
 
+.umo-main {
+  position: relative;
+}
+
+.umo-editor-viewer {
+  .umo-editor-content {
+    user-select: text;
+  }
+}
+
+.umo-editor-viewer-no-selection {
+  .umo-editor-content {
+    user-select: none;
+  }
+}
+
+.umo-comment-anchor,
+.epoch-comment-anchor {
+  border-bottom: 2px solid var(--umo-primary-color);
+  background: color-mix(in srgb, var(--umo-primary-color) 10%, transparent);
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.umo-comment-anchor:hover,
+.umo-comment-anchor--focused,
+.epoch-comment-anchor:hover,
+.epoch-comment-anchor--focused {
+  background: color-mix(in srgb, var(--umo-primary-color) 16%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--umo-primary-color) 20%, transparent);
+}
+
+.umo-comment-anchor-overlay {
+  position: absolute;
+  z-index: 8;
+  border-bottom: 2px solid var(--umo-primary-color);
+  background: color-mix(in srgb, var(--umo-primary-color) 10%, transparent);
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.umo-comment-anchor-overlay:hover,
+.umo-comment-anchor-overlay:focus-visible {
+  background: color-mix(in srgb, var(--umo-primary-color) 16%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--umo-primary-color) 20%, transparent);
+}
+
 .umo-editor-content {
   accent-color: var(--umo-primary-color);
 

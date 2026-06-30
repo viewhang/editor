@@ -16,6 +16,13 @@
         'laser-pointer': page.preview?.enabled && page.preview?.laserPointer,
         'umo-editor-is-fullscreen': fullscreen,
         'umo-editor-is-typerwriter-runing': typeWriterIsRunning,
+        'umo-editor-viewer': options.viewer?.enabled,
+        'umo-editor-viewer-no-toolbar':
+          options.viewer?.enabled && options.viewer?.showToolbar === false,
+        'umo-editor-viewer-no-statusbar':
+          options.viewer?.enabled && options.viewer?.showStatusbar === false,
+        'umo-editor-viewer-no-selection':
+          options.viewer?.enabled && options.viewer?.allowTextSelection === false,
         'umo-skin-default': options.skin === 'default',
         'umo-skin-modern': options.skin === 'modern',
       }"
@@ -24,7 +31,10 @@
         zIndex: fullscreen ? options.fullscreenZIndex : 'unset',
       }"
     >
-      <header class="umo-toolbar">
+      <header
+        v-if="!options.viewer?.enabled || options.viewer?.showToolbar !== false"
+        class="umo-toolbar"
+      >
         <toolbar
           :key="toolbarKey"
           @menu-change="(event) => emits('changed:menu', event)"
@@ -44,8 +54,12 @@
             <slot name="bubble_menu" v-bind="slotProps" />
           </template>
         </container-page>
+        <container-comment-anchors v-if="options.comments?.enabled" />
       </main>
-      <footer class="umo-footer">
+      <footer
+        v-if="!options.viewer?.enabled || options.viewer?.showStatusbar !== false"
+        class="umo-footer"
+      >
         <statusbar />
       </footer>
     </div>
@@ -74,11 +88,16 @@ import {
   undoHistoryRecord,
 } from '@/utils/history-record'
 import {
-  AI_DEFAULT_APPLY_MODE,
-  cloneAiAction,
-  getAiSurfaceActions,
-  normalizeAiActionResult,
-} from '@/utils/ai'
+  buildAssistantContent,
+  buildAssistantPayload,
+  getAssistantCommandLabel,
+  readAssistantResult,
+  validateAssistantInputLength,
+} from '@/utils/assistant'
+import {
+  findAnchorContextInHtml,
+  findAnchoredTextRange,
+} from '@/utils/comment-anchors'
 import { createFileResolver } from '@/utils/file-resolver'
 import { getOptions } from '@/utils/options'
 import { getSelectionNode, getSelectionText } from '@/utils/selection'
@@ -144,7 +163,9 @@ const fileResolver = createFileResolver({ options })
 // const bookmark = ref(false)
 const destroyed = ref(false)
 const typeWriterIsRunning = ref(false)
-const aiActionState = ref({ loading: false, key: '' })
+const assistantState = ref({ loading: false, command: '', preview: '' })
+const commentAnchorRects = ref([])
+const isViewerMode = computed(() => !!options.value.viewer?.enabled)
 
 const $toolbar = useState('toolbar', options)
 const $document = useState('document', options)
@@ -167,7 +188,9 @@ provide('fileResolver', fileResolver)
 provide('destroyed', destroyed)
 provide('historyRecords', historyRecords)
 provide('typeWriterIsRunning', typeWriterIsRunning)
-provide('aiActionState', aiActionState)
+provide('assistantState', assistantState)
+provide('commentAnchorRects', commentAnchorRects)
+provide('isViewerMode', isViewerMode)
 
 watch(
   () => options.value.page,
@@ -206,9 +229,9 @@ watch(
   { immediate: true, deep: true },
 )
 watch(
-  () => options.value.document?.readOnly,
-  (val) => {
-    editor.value?.setEditable(!val)
+  () => [options.value.document?.readOnly, options.value.viewer?.enabled],
+  ([readOnly, viewerEnabled]) => {
+    editor.value?.setEditable(!readOnly && !viewerEnabled)
   },
 )
 
@@ -216,7 +239,11 @@ let toolbarKey = $ref(shortId())
 let toolbarActive = ref(null)
 provide('toolbarActive', toolbarActive)
 watch(
-  () => [options.value.document?.readOnly, editor.value?.isEditable],
+  () => [
+    options.value.document?.readOnly,
+    options.value.viewer?.enabled,
+    editor.value?.isEditable,
+  ],
   async () => {
     await nextTick()
     toolbarKey = shortId()
@@ -230,9 +257,22 @@ onMounted(() => {
   setTheme(theme.value)
   setSkin(skin.value)
   window.addEventListener('beforeunload', handleBeforeUnload)
+  document.querySelector(container)?.addEventListener('click', handleCommentAnchorClick)
+  bindCommentAnchorScrollContainer()
+  window.addEventListener('resize', scheduleCommentAnchorRefresh)
+  nextTick(scheduleCommentAnchorRefresh)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
+  document.querySelector(container)?.removeEventListener('click', handleCommentAnchorClick)
+  commentAnchorScrollContainer?.removeEventListener(
+    'scroll',
+    scheduleCommentAnchorRefresh,
+  )
+  window.removeEventListener('resize', scheduleCommentAnchorRefresh)
+  if (commentAnchorRenderFrame) {
+    window.cancelAnimationFrame(commentAnchorRenderFrame)
+  }
   clearAutoSaveInterval()
   destroy()
 })
@@ -256,6 +296,17 @@ watch(
   (val) => {
     $document.value = val
   },
+)
+
+watch(
+  () => [
+    options.value.comments?.anchors,
+    options.value.document?.content,
+    page.value?.zoomLevel,
+    page.value?.layout,
+  ],
+  () => nextTick(scheduleCommentAnchorRefresh),
+  { deep: true },
 )
 
 watch(
@@ -789,202 +840,89 @@ const insertContent = (
     .run()
 }
 
-const getAiActionContent = (content, format = 'text') => {
-  if (format === 'json') {
-    return content
-  }
-  return contentTransform(content)
-}
-
-const applyAiActionResult = (result, range) => {
-  if (!editor.value || !result) {
+const applyAssistantResult = (resultText, range) => {
+  if (!editor.value || !resultText) {
     return false
   }
-
-  const type = result.type || AI_DEFAULT_APPLY_MODE
-  const format = result.format || 'text'
-  const content = getAiActionContent(result.content, format)
-
-  if (
-    ['replace-selection', 'insert-content', 'insert-after-selection', 'append-content', 'set-content'].includes(
-      type,
-    ) &&
-    result.content === undefined
-  ) {
-    throw new Error(t('ai.invalidResult'))
-  }
-
-  switch (type) {
-    case 'none':
-    case 'manual':
-      return true
-    case 'replace-selection':
-      editor.value
-        .chain()
-        .focus()
-        .insertContentAt(
-          range || {
-            from: editor.value.state.selection.from,
-            to: editor.value.state.selection.to,
-          },
-          content,
-          {
-            updateSelection: true,
-          },
-        )
-        .run()
-      return true
-    case 'insert-content':
-      editor.value.chain().focus().insertContent(content).run()
-      return true
-    case 'insert-after-selection':
-      editor.value
-        .chain()
-        .focus()
-        .insertContentAt(range?.to || editor.value.state.selection.to, content, {
-          updateSelection: true,
-        })
-        .run()
-      return true
-    case 'append-content':
-      editor.value.chain().focus('end').insertContent(content).run()
-      return true
-    case 'set-content':
-      setContent(result.content, {
-        emitUpdate: result.emitUpdate !== false,
-        focusPosition: 'end',
-        focusOptions: { scrollIntoView: true },
-      })
-      return true
-    case 'message':
-      useMessage(result.theme || 'success', {
-        attach: container,
-        content: result.message || result.content || '',
-        placement: 'bottom',
-        offset: [0, -20],
-      })
-      return true
-    default:
-      throw new Error(t('ai.invalidResult'))
-  }
+  editor.value
+    .chain()
+    .focus()
+    .insertContentAt(
+      { from: range.from, to: range.to },
+      contentTransform(resultText),
+      { updateSelection: true },
+    )
+    .run()
+  return true
 }
 
-const createAiHelpers = (range, markContentHandled) => {
-  return {
-    applyResult(result) {
-      markContentHandled()
-      return applyAiActionResult(result, range)
-    },
-    replaceSelection(content, format = 'text') {
-      markContentHandled()
-      return applyAiActionResult(
-        { type: 'replace-selection', content, format },
-        range,
-      )
-    },
-    insertContent(content, format = 'text') {
-      markContentHandled()
-      return applyAiActionResult({ type: 'insert-content', content, format })
-    },
-    insertAfterSelection(content, format = 'text') {
-      markContentHandled()
-      return applyAiActionResult(
-        { type: 'insert-after-selection', content, format },
-        range,
-      )
-    },
-    appendContent(content, format = 'text') {
-      markContentHandled()
-      return applyAiActionResult({ type: 'append-content', content, format })
-    },
-    setContent(content, format = 'text') {
-      markContentHandled()
-      return applyAiActionResult({ type: 'set-content', content, format })
-    },
-    showMessage(type, params) {
-      const messageParams =
-        typeof params === 'string' ? { content: params } : params || {}
-      return useMessage(type, { attach: container, ...messageParams })
-    },
-    getSelectionText: () => (editor.value ? getSelectionText(editor.value) : ''),
-    getSelectionNode: () => (editor.value ? getSelectionNode(editor.value) : null),
-    getDocument: (format = 'text') => getContent(format),
-  }
-}
-
-const createAiActionPayload = (action, range) => {
-  let contentHandled = false
-  const selectionNode = editor.value ? getSelectionNode(editor.value) : null
-  const selectionText = editor.value ? getSelectionText(editor.value) : ''
-  const documentText = getText()
-  const documentHTML = getHTML()
-  const documentJSON = getJSON()
-  const title = options.value.document?.title || ''
-  const payload = {
-    key: action.key,
-    action: cloneAiAction(action),
-    selectionText,
-    selectionNode,
-    range: { ...range },
-    selection: {
-      text: selectionText,
-      node: selectionNode,
-      range: { ...range },
-    },
-    documentText,
-    documentHTML,
-    documentJSON,
-    document: {
-      title,
-      text: documentText,
-      html: documentHTML,
-      json: documentJSON,
-    },
-    locale: locale.value,
-    title,
-    editor: editor.value,
-    helpers: createAiHelpers(range, () => {
-      contentHandled = true
-    }),
-  }
-
-  return {
-    payload,
-    isContentHandled: () => contentHandled,
-  }
-}
-
-// AI 回调允许宿主完全接管处理流程；当宿主不手动回写时，编辑器会根据返回值自动应用结果。
-const runAiAction = async (action) => {
+const runAssistantCommand = async (command, commandOverride) => {
   if (!editor.value) {
     throw new Error('editor is not ready!')
   }
 
-  if (!isRecord(action) || !action.key) {
-    throw new Error('AI action is invalid.')
+  const assistant = options.value.ai?.assistant
+  if (!assistant?.enabled || typeof assistant.onMessage !== 'function') {
+    return false
   }
-
-  if (aiActionState.value.loading) {
+  if (assistantState.value.loading) {
     return false
   }
 
   const { from, to, empty } = editor.value.state.selection
-  const range = { from, to, empty }
-  const { payload, isContentHandled } = createAiActionPayload(action, range)
+  if (empty) {
+    return false
+  }
 
-  aiActionState.value = { loading: true, key: action.key }
+  const input = getSelectionText(editor.value)
+  if (
+    commandOverride !== undefined &&
+    !validateAssistantInputLength(commandOverride, assistant.maxlength)
+  ) {
+    useMessage('warning', {
+      attach: container,
+      content: t('ai.exceedMaxlength') || 'The selected text is too long.',
+      placement: 'bottom',
+      offset: [0, -20],
+    })
+    return false
+  }
+
+  const commandLabel = getAssistantCommandLabel(command, l)
+  const payload = buildAssistantPayload({
+    command: commandOverride === undefined
+      ? command
+      : { ...command, value: commandOverride },
+    input,
+    lang: locale.value,
+    locale: l,
+  })
+  const content = buildAssistantContent(editor.value)
+  assistantState.value = { loading: true, command: commandLabel, preview: '' }
 
   try {
-    const result = await options.value.onAiAction(payload)
-    if (isContentHandled()) {
-      return result
+    const result = await assistant.onMessage(payload, content)
+    const resultText = await readAssistantResult(result, (_chunk, accumulated) => {
+      assistantState.value = {
+        loading: true,
+        command: commandLabel,
+        preview: accumulated,
+      }
+    })
+    if (!resultText) {
+      return false
     }
-
-    const normalizedResult = normalizeAiActionResult(result, action)
-    if (normalizedResult) {
-      applyAiActionResult(normalizedResult, range)
+    if (resultText.startsWith('[ERROR]:')) {
+      useMessage('error', {
+        attach: container,
+        content: resultText.replace('[ERROR]:', '').trim(),
+        placement: 'bottom',
+        offset: [0, -20],
+      })
+      return false
     }
-    return result
+    applyAssistantResult(resultText, { from, to, empty })
+    return resultText
   } catch (error) {
     useMessage('error', {
       attach: container,
@@ -995,12 +933,371 @@ const runAiAction = async (action) => {
     console.error(error)
     return false
   } finally {
-    aiActionState.value = { loading: false, key: '' }
+    assistantState.value = { loading: false, command: '', preview: '' }
   }
 }
 
-const getAiActions = (surface = 'bubble') => {
-  return getAiSurfaceActions(options.value, surface)
+let commentAnchorRenderFrame = 0
+let commentAnchorScrollContainer = null
+
+const getCommentOverlayHost = () => {
+  return document.querySelector(`${container} .umo-main`) || document.querySelector(container)
+}
+
+const scheduleCommentAnchorRefresh = () => {
+  if (commentAnchorRenderFrame) {
+    window.cancelAnimationFrame(commentAnchorRenderFrame)
+  }
+  commentAnchorRenderFrame = window.requestAnimationFrame(() => {
+    bindCommentAnchorScrollContainer()
+    refreshCommentAnchors()
+  })
+}
+
+const bindCommentAnchorScrollContainer = () => {
+  const root = document.querySelector(container)
+  const nextContainer = root?.querySelector('.umo-zoomable-container') || null
+  if (nextContainer === commentAnchorScrollContainer) {
+    return
+  }
+  commentAnchorScrollContainer?.removeEventListener(
+    'scroll',
+    scheduleCommentAnchorRefresh,
+  )
+  commentAnchorScrollContainer = nextContainer
+  commentAnchorScrollContainer?.addEventListener(
+    'scroll',
+    scheduleCommentAnchorRefresh,
+    { passive: true },
+  )
+}
+
+const stripContextHtml = (value) => {
+  return String(value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+}
+
+const findAllTextMatches = (source, selectedText) => {
+  const matches = []
+  let index = source.indexOf(selectedText)
+  while (index >= 0) {
+    matches.push(index)
+    index = source.indexOf(selectedText, index + selectedText.length)
+  }
+  return matches
+}
+
+const getRawHtmlContext = (selectedText, beforeText, afterText, contextLength) => {
+  const source = options.value.document?.content || ''
+  const matches = findAllTextMatches(source, selectedText)
+  if (!matches.length) {
+    return null
+  }
+
+  const contextualMatches = matches.filter((index) => {
+    const rawBefore = source.slice(Math.max(0, index - contextLength * 10), index)
+    const rawAfter = source.slice(
+      index + selectedText.length,
+      index + selectedText.length + contextLength * 10,
+    )
+    const beforeMatches = !beforeText || stripContextHtml(rawBefore).endsWith(beforeText)
+    const afterMatches = !afterText || stripContextHtml(rawAfter).startsWith(afterText)
+    return beforeMatches && afterMatches
+  })
+
+  const targetIndex =
+    contextualMatches.length === 1
+      ? contextualMatches[0]
+      : matches.length === 1
+        ? matches[0]
+        : null
+  if (targetIndex === null || targetIndex === undefined) {
+    return null
+  }
+
+  return {
+    beforeText: stripContextHtml(
+      source.slice(Math.max(0, targetIndex - contextLength * 10), targetIndex),
+    ).slice(-contextLength),
+    afterText: stripContextHtml(
+      source.slice(
+        targetIndex + selectedText.length,
+        targetIndex + selectedText.length + contextLength * 10,
+      ),
+    ).slice(0, contextLength),
+  }
+}
+
+const getFullTextContext = (selectedText, contextLength) => {
+  const fullText = editor.value?.getText?.() || ''
+  const index = fullText.indexOf(selectedText)
+  if (index < 0) {
+    return null
+  }
+  return {
+    beforeText: fullText.slice(Math.max(0, index - contextLength), index),
+    afterText: fullText.slice(
+      index + selectedText.length,
+      index + selectedText.length + contextLength,
+    ),
+  }
+}
+
+const getSelectionContext = (selectionText) => {
+  const selection = editor.value?.state?.selection
+  const doc = editor.value?.state?.doc
+  const contextLength = options.value.comments?.selection?.contextLength || 24
+  if (!selection || !doc?.textBetween) {
+    const fullTextContext = getFullTextContext(selectionText, contextLength)
+    return (
+      getRawHtmlContext(
+        selectionText,
+        fullTextContext?.beforeText || '',
+        fullTextContext?.afterText || '',
+        contextLength,
+      ) ||
+      fullTextContext || { beforeText: '', afterText: '' }
+    )
+  }
+  const docSize = doc.content?.size || selection.to
+  const beforeStart = Math.max(0, selection.from - contextLength)
+  const afterEnd = Math.min(docSize, selection.to + contextLength)
+  const tiptapContext = {
+    beforeText: doc.textBetween(beforeStart, selection.from, '', '').slice(-contextLength),
+    afterText: doc.textBetween(selection.to, afterEnd, '', '').slice(0, contextLength),
+  }
+  if (!tiptapContext.beforeText && !tiptapContext.afterText) {
+    const fullTextContext = getFullTextContext(selectionText, contextLength)
+    if (fullTextContext) {
+      return (
+        getRawHtmlContext(
+          selectionText,
+          fullTextContext.beforeText,
+          fullTextContext.afterText,
+          contextLength,
+        ) || fullTextContext
+      )
+    }
+  }
+  return (
+    getRawHtmlContext(
+      selectionText,
+      tiptapContext.beforeText,
+      tiptapContext.afterText,
+      contextLength,
+    ) || tiptapContext
+  )
+}
+
+const getSelectionAnchorRect = () => {
+  const selection = editor.value?.state?.selection
+  const view = editor.value?.view
+  const containerRect = getCommentOverlayHost()?.getBoundingClientRect()
+  if (!selection || !view || !containerRect) {
+    return null
+  }
+  let coords = null
+  try {
+    coords = view.coordsAtPos(selection.to)
+  } catch {
+    const editorRect = view.dom?.getBoundingClientRect()
+    if (!editorRect) {
+      return null
+    }
+    coords = {
+      left: editorRect.left + 24,
+      right: editorRect.left + 24,
+      top: editorRect.top + 24,
+      bottom: editorRect.top + 24,
+    }
+  }
+  if (!coords) {
+    return null
+  }
+  return {
+    top: Math.max(8, coords.bottom - containerRect.top + 8),
+    left: Math.max(8, Math.min(coords.left - containerRect.left, containerRect.width - 112)),
+  }
+}
+
+const createSelectionCommentDraft = () => {
+  const selectedText = getSelectionText(editor.value).trim()
+  const anchorRect = getSelectionAnchorRect()
+  if (!selectedText || !anchorRect) {
+    return null
+  }
+  return {
+    selectedText,
+    ...getSelectionContext(selectedText),
+    anchorRect,
+  }
+}
+
+const getEditorContentElement = () => {
+  const editorDom = editor.value?.view?.dom
+  return editorDom?.closest('.umo-page-node-content') || editorDom || null
+}
+
+const collectTextNodes = (root) => {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const textNodes = []
+  let text = ''
+  let current = walker.nextNode()
+
+  while (current) {
+    const node = current
+    const value = node.textContent || ''
+    const parentElement = node.parentElement
+    const hidden = parentElement?.closest(
+      '.Tiptap-invisible-character, .ProseMirror-separator',
+    )
+    if (value.length > 0 && !hidden) {
+      textNodes.push({
+        node,
+        start: text.length,
+        end: text.length + value.length,
+      })
+      text += value
+    }
+    current = walker.nextNode()
+  }
+
+  return { text, textNodes }
+}
+
+const resolveTextPosition = (textNodes, offset) => {
+  for (const item of textNodes) {
+    if (offset >= item.start && offset <= item.end) {
+      return {
+        node: item.node,
+        offset: Math.min(offset - item.start, item.node.textContent?.length || 0),
+      }
+    }
+  }
+  return null
+}
+
+const getRangeRects = (range, anchorId) => {
+  const containerRect = getCommentOverlayHost()?.getBoundingClientRect()
+  if (!containerRect) {
+    return []
+  }
+  return Array.from(range.getClientRects())
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .map((rect) => ({
+      anchorId,
+      top: rect.top - containerRect.top,
+      left: rect.left - containerRect.left,
+      width: rect.width,
+      height: rect.height,
+    }))
+}
+
+const createTextRangeForCommentAnchor = (anchor) => {
+  const contentRoot = getEditorContentElement()
+  if (!contentRoot) {
+    return null
+  }
+
+  const { text, textNodes } = collectTextNodes(contentRoot)
+  const htmlContext = findAnchorContextInHtml(
+    options.value.document?.content || '',
+    anchor.id,
+  )
+  const matchedRange = findAnchoredTextRange(text, {
+    quoteText: htmlContext?.quoteText || anchor.quoteText,
+    originalQuoteText: anchor.originalQuoteText,
+    beforeText: htmlContext?.beforeText || anchor.beforeText,
+    afterText: htmlContext?.afterText || anchor.afterText,
+  })
+  if (!matchedRange) {
+    return null
+  }
+
+  const start = resolveTextPosition(textNodes, matchedRange.start)
+  const end = resolveTextPosition(textNodes, matchedRange.end)
+  if (!start || !end) {
+    return null
+  }
+
+  const range = document.createRange()
+  range.setStart(start.node, start.offset)
+  range.setEnd(end.node, end.offset)
+  return range
+}
+
+const refreshCommentAnchors = () => {
+  const root = document.querySelector(container)
+  const anchors = (options.value.comments?.anchors || []).filter((anchor) => {
+    return anchor?.id && anchor.status !== 'ORPHANED'
+  })
+  const rects = []
+
+  for (const anchor of anchors) {
+    const existing = root?.querySelector(
+      `[data-comment-anchor-id="${CSS.escape(anchor.id)}"]`,
+    )
+    if (existing) {
+      existing.classList.add('umo-comment-anchor')
+      continue
+    }
+    const range = createTextRangeForCommentAnchor(anchor)
+    if (range) {
+      rects.push(...getRangeRects(range, anchor.id))
+    }
+  }
+
+  commentAnchorRects.value = rects
+  return true
+}
+
+const handleCommentAnchorClick = (event) => {
+  const target =
+    event.target instanceof Element
+      ? event.target.closest('[data-comment-anchor-id], [data-umo-comment-anchor-id]')
+      : null
+  const anchorId = target?.dataset.commentAnchorId || target?.dataset.umoCommentAnchorId
+  if (anchorId) {
+    options.value.comments?.onAnchorClick?.(anchorId)
+  }
+}
+
+const scrollToCommentAnchor = (anchorId) => {
+  const root = document.querySelector(container)
+  const anchor =
+    root?.querySelector(`[data-comment-anchor-id="${CSS.escape(anchorId)}"]`) ||
+    root?.querySelector(`[data-umo-comment-anchor-id="${CSS.escape(anchorId)}"]`)
+  if (anchor) {
+    anchor.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+    anchor.classList.add('umo-comment-anchor--focused')
+    window.setTimeout(() => anchor.classList.remove('umo-comment-anchor--focused'), 1600)
+    return true
+  }
+
+  const matchedAnchor = (options.value.comments?.anchors || []).find(
+    (item) => item.id === anchorId,
+  )
+  const range = matchedAnchor ? createTextRangeForCommentAnchor(matchedAnchor) : null
+  const startElement = range?.startContainer?.parentElement
+  if (!startElement) {
+    return false
+  }
+  startElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  window.setTimeout(scheduleCommentAnchorRefresh, 240)
+  return true
+}
+
+const scrollToComment = (comment) => {
+  return comment?.anchorId ? scrollToCommentAnchor(comment.anchorId) : false
+}
+
+const clearSelectionComment = () => {
+  editor.value?.commands.blur()
 }
 
 const startTypewriter = (content, options) => {
@@ -1501,7 +1798,9 @@ provide('reset', reset)
 provide('getVanillaHTML', getVanillaHTML)
 provide('undoHistory', undoHistory)
 provide('redoHistory', redoHistory)
-provide('runAiAction', runAiAction)
+provide('runAssistantCommand', runAssistantCommand)
+provide('createSelectionCommentDraft', createSelectionCommentDraft)
+provide('refreshCommentAnchors', refreshCommentAnchors)
 // Exposing Methods
 defineExpose({
   getOptions: () => options.value,
@@ -1526,7 +1825,6 @@ defineExpose({
   getHTML,
   getJSON,
   getVanillaHTML,
-  getAiActions,
   saveContent,
   getContentExcerpt,
   getEditor: () => editor,
@@ -1564,8 +1862,11 @@ defineExpose({
   useMessage(type, pramas) {
     return useMessage(type, { attach: container, ...pramas })
   },
-  runAiAction,
-  applyAiActionResult,
+  runAssistantCommand,
+  scrollToCommentAnchor,
+  scrollToComment,
+  clearSelectionComment,
+  refreshCommentAnchors,
 })
 </script>
 

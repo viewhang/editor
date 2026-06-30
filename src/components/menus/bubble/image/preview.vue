@@ -2,6 +2,7 @@
   <menus-button
     ico="image-preview"
     :text="t('bubbleMenu.image.preview')"
+    force-enabled
     @menu-click="openImageViewer"
   />
 </template>

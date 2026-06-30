@@ -3,6 +3,7 @@
     ico="copy"
     :text="t('insert.link.copy')"
     hide-text
+    force-enabled
     @menu-click="copyLink"
   />
 </template>

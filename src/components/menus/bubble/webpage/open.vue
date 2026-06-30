@@ -2,6 +2,7 @@
   <menus-button
     ico="new-window"
     :text="t('bubbleMenu.webpage.open')"
+    force-enabled
     @menu-click="openWebpage"
   />
 </template>

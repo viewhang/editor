@@ -1,4 +1,4 @@
-import defaultDicts from './dicts'
+import defaultDicts from './dicts.js'
 
 // 默认配置
 export default {
@@ -175,6 +175,26 @@ export default {
   },
   user: {},
   users: [],
+  viewer: {
+    enabled: false,
+    showToolbar: true,
+    showStatusbar: true,
+    allowTextSelection: true,
+  },
+  comments: {
+    enabled: false,
+    selection: {
+      enabled: true,
+      label: {
+        zh_CN: '评论',
+        en_US: 'Comment',
+      },
+      contextLength: 24,
+    },
+    anchors: [],
+    onSelectionComment() {},
+    onAnchorClick() {},
+  },
   slashCommands: {
     enabled: false,
     suggestionChar: '/',
@@ -182,16 +202,37 @@ export default {
     items: [],
   },
   ai: {
-    enabled: false,
-    bubble: {
-      enabled: true,
-      label: {
-        zh_CN: 'AI 助手',
-        en_US: 'AI Assistant',
+    assistant: {
+      enabled: false,
+      maxlength: 100,
+      placeholder: {
+        en_US: 'Enter an AI instruction',
+        zh_CN: '请输入 AI 指令',
       },
-      maxVisible: 3,
+      commands: [
+        {
+          label: { en_US: 'Continuation', zh_CN: '续写' },
+          value: { en_US: 'Continuation', zh_CN: '续写' },
+        },
+        {
+          label: { en_US: 'Rewrite', zh_CN: '重写' },
+          value: { en_US: 'Rewrite', zh_CN: '重写' },
+        },
+        {
+          label: { en_US: 'Polish', zh_CN: '润色' },
+          value: { en_US: 'Polish', zh_CN: '润色' },
+        },
+      ],
+      async onMessage() {
+        return await new Promise((_, reject) => {
+          reject(
+            new Error(
+              'Key "ai": Key "assistant": Key "onMessage": Please set the onMessage method',
+            ),
+          )
+        })
+      },
     },
-    actions: [],
   },
   onMentionSearch: null,
   extensions: [],
@@ -229,10 +270,5 @@ export default {
     console.error(
       'The file has been deleted. Please configure the onFileDelete to completely delete the file from the server.',
     )
-  },
-  async onAiAction() {
-    return await new Promise((_, reject) => {
-      reject(new Error('Key "onAiAction": Please set the AI action handler'))
-    })
   },
 }

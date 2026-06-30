@@ -797,6 +797,7 @@
     "more": "更多助手",
     "processing": "AI 正在处理中...",
     "failed": "AI 处理失败",
+    "exceedMaxlength": "选中的文本过长",
     "invalidResult": "AI 回调返回结果格式不正确"
   },
   "slashCommands": {

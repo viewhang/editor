@@ -1,5 +1,5 @@
 <template>
-  <menus-button :text="t('insert.link.open')">
+  <menus-button :text="t('insert.link.open')" force-enabled>
     <a
       class="umo-link"
       :href="editor?.getAttributes('link').href"
