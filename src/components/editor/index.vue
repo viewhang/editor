@@ -62,9 +62,62 @@ const extensions = getDefaultExtensions({
   uploadFileMap,
 })
 
-const updateDebounce = useDebounceFn((editor) => {
-  $document.value.content = editor.getHTML()
-}, 3000)
+// 同步文档内容
+let syncContentTimer = null
+const syncDocumentContent = (targetEditor = editorInstance) => {
+  if (!$document.value || !targetEditor) {
+    return
+  }
+  $document.value.content = targetEditor.getHTML()
+}
+const scheduleSyncDocumentContent = () => {
+  if (syncContentTimer !== null) {
+    clearTimeout(syncContentTimer)
+  }
+  syncContentTimer = setTimeout(() => {
+    syncContentTimer = null
+    syncDocumentContent(editorInstance)
+  }, 800)
+}
+const flushSyncDocumentContent = () => {
+  if (syncContentTimer !== null) {
+    clearTimeout(syncContentTimer)
+    syncContentTimer = null
+  }
+  syncDocumentContent(editorInstance)
+}
+
+// 处理列表项的键盘事件
+const getActiveListItemType = (selection) => {
+  const { $from } = selection
+  const { depth: maxDepth } = $from
+  for (let depth = maxDepth; depth > 0; depth -= 1) {
+    const currentNode = $from.node(depth)
+    const nodeName = currentNode?.type?.name
+    if (nodeName === 'listItem' || nodeName === 'taskItem') {
+      return nodeName
+    }
+  }
+  return null
+}
+const handleEditorKeyDown = (view, event) => {
+  const customHandleKeyDown = options.value.document?.editorProps?.handleKeyDown
+  if (
+    event.key === 'Enter' &&
+    !event.shiftKey &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.isComposing
+  ) {
+    const itemType = getActiveListItemType(view.state.selection)
+    if (itemType && editorInstance.commands.splitListItem(itemType)) {
+      event.preventDefault()
+      return true
+    }
+  }
+  return customHandleKeyDown?.(view, event) || false
+}
 
 const editorInstance = new Editor({
   editable: !options.value.document?.readOnly,
@@ -77,6 +130,7 @@ const editorInstance = new Editor({
       class: 'umo-editor',
     },
     ...options.value.document?.editorProps,
+    handleKeyDown: handleEditorKeyDown,
   },
   // enableContentCheck: true,
   parseOptions: options.value.document?.parseOptions,
@@ -88,7 +142,10 @@ const editorInstance = new Editor({
   },
   onUpdate({ editor }) {
     addHistory(historyRecords, 'editor', editor?.state?.history$)
-    updateDebounce(editor)
+    scheduleSyncDocumentContent()
+  },
+  onBlur() {
+    flushSyncDocumentContent()
   },
 })
 const editor = inject('editor')
@@ -112,10 +169,17 @@ onMounted(() => {
   if (has('mermaid')) {
     loadResource(`${libUrl}/mermaid/mermaid.min.js`, 'script', 'mermaid-script')
   }
+  window.addEventListener('beforeunload', flushSyncDocumentContent)
+  window.addEventListener('pagehide', flushSyncDocumentContent)
+  document.addEventListener('visibilitychange', flushSyncDocumentContent)
 })
 
 // 销毁编辑器实例
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', flushSyncDocumentContent)
+  window.removeEventListener('pagehide', flushSyncDocumentContent)
+  document.removeEventListener('visibilitychange', flushSyncDocumentContent)
+  flushSyncDocumentContent()
   editorInstance.unmount()
 })
 </script>

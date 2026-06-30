@@ -13,6 +13,32 @@
 import { shortId } from '@/utils/short-id'
 
 const editorRef = $ref(null)
+const remoteMentionUsers = [
+  {
+    id: 'remote-alice',
+    label: 'Alice Chen',
+    bio: '远程目录用户',
+    color: 'var(--umo-primary-color)',
+  },
+  {
+    id: 'remote-bob',
+    label: 'Bob Li',
+    bio: '远程目录用户',
+    color: 'var(--umo-primary-color)',
+  },
+  {
+    id: 'remote-charlie',
+    label: 'Charlie Wang',
+    bio: '远程目录用户',
+    color: 'var(--umo-primary-color)',
+  },
+  {
+    id: 'remote-dora',
+    label: 'Dora Xu',
+    bio: '远程目录用户',
+    color: 'var(--umo-primary-color)',
+  },
+]
 const templates = [
   {
     title: '工作任务',
@@ -60,8 +86,25 @@ const options = $ref({
     avatar: 'https://tdesign.gtimg.com/site/avatar.jpg',
   },
   users: [
-    { id: 'umodoc', label: 'Umo Team' },
-    { id: 'Cassielxd', label: 'Cassielxd' },
+    {
+      id: 'umodoc',
+      label: 'Umo Team',
+      bio: '核心开发者',
+      avatar: 'https://s1.umodoc.com/images/favicon.png',
+      color: 'var(--umo-primary-color)',
+    },
+    {
+      id: 'china-wangxu',
+      label: 'china-wangxu',
+      bio: '重要贡献者',
+      color: 'var(--umo-primary-color)',
+    },
+    {
+      id: 'Cassielxd',
+      label: 'Cassielxd',
+      bio: '重要贡献者',
+      color: 'var(--umo-primary-color)',
+    },
     { id: 'Goldziher', label: "Na'aman Hirschfeld" },
     { id: 'SerRashin', label: 'SerRashin' },
     { id: 'ChenErik', label: 'ChenErik' },
@@ -142,6 +185,12 @@ const options = $ref({
   },
   slashCommands: {
     enabled: true,
+  },
+  async onMentionSearch(query) {
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    return remoteMentionUsers.filter((user) =>
+      user.label.toLowerCase().includes(query.toLowerCase()),
+    )
   },
   // https://dev.umodoc.com/cn/docs/options/extensions#disableextensions
   disableExtensions: [],

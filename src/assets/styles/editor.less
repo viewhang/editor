@@ -52,6 +52,32 @@
     font-size: var(--umo-font-size);
     font-display: swap;
 
+    >h1[data-placeholder],
+    h2[data-placeholder],
+    h3[data-placeholder],
+    h4[data-placeholder],
+    h5[data-placeholder],
+    h6[data-placeholder],
+    >h1+p[data-placeholder],
+    h2+p[data-placeholder],
+    h3+p[data-placeholder],
+    h4+p[data-placeholder],
+    h5+p[data-placeholder],
+    h6+p[data-placeholder] {
+
+      .tiptap-invisible-character,
+      .ProseMirror-separator,
+      .ProseMirror-trailingBreak {
+        display: none !important;
+      }
+
+      &::after {
+        color: var(--umo-content-placeholder-color);
+        content: attr(data-placeholder);
+        pointer-events: none;
+      }
+    }
+
     >* {
       position: relative;
       z-index: 1;
@@ -401,14 +427,18 @@
   .umo-task-list {
     list-style: none;
     padding: 0;
+    margin: 0;
 
     li {
       display: flex;
+      margin: 0;
+      padding: 0;
 
       &[data-checked='true'] {
         p {
           opacity: 0.5;
           text-decoration: line-through;
+          margin: 0;
 
           &:has([style]) {
             text-decoration: inherit;
@@ -444,6 +474,11 @@
 
       >div {
         flex: 1 1 auto;
+
+        p {
+          margin: 0;
+          padding: 0;
+        }
       }
     }
 
@@ -454,12 +489,12 @@
       height: 16px;
       padding: 0.1em 0.4em;
       opacity: 0.6;
-      border: 1px solid var(--umo-text-color);
+      border: 1px solid #999;
       border-radius: 2px;
       background-color: white;
       position: relative;
       color: #fff;
-      margin: 2px 0;
+      margin: 0.3em 0 0 0;
 
       &:hover {
         border-color: var(--umo-primary-color);
@@ -495,7 +530,7 @@
       border: solid 1px var(--umo-content-node-border);
       padding: 1px 8px;
       border-radius: 2px;
-      background-color: var(--umo-color-white);
+      background-color: #fff;
       position: absolute;
       left: 50%;
       top: 50%;
@@ -534,6 +569,8 @@
     display: flex;
     position: relative;
     max-height: 100%;
+    scroll-margin-top: 20px;
+    scroll-margin-bottom: 20px;
 
     .umo-node-container {
       max-height: 100%;
@@ -591,7 +628,7 @@
       padding: 0;
       appearance: none;
       border: none;
-      color: var(--umo-text-color-light);
+      color: #999;
 
       &:hover {
         color: var(--umo-primary-color);
@@ -811,6 +848,10 @@
       box-shadow: var(--umo-shadow);
       border-radius: 3px;
       display: none;
+    }
+
+    &[caption='']::before {
+      display: none !important;
     }
 
     &:hover {

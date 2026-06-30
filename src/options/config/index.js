@@ -193,6 +193,7 @@ export default {
     },
     actions: [],
   },
+  onMentionSearch: null,
   extensions: [],
   disableExtensions: [],
   translations: {

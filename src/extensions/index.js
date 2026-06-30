@@ -20,6 +20,7 @@ import {
   CharacterCount,
   Dropcursor,
   Focus,
+  TrailingNode,
   Placeholder,
   UndoRedo,
 } from '@tiptap/extensions'
@@ -112,7 +113,14 @@ const nodeTypes = [
 ]
 
 export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
-  const { page, document: doc, users, file, disableExtensions } = options.value
+  const {
+    page,
+    document: doc,
+    users,
+    file,
+    disableExtensions,
+    onMentionSearch,
+  } = options.value
 
   const extensions = {
     'ordered-list': OrderedList,
@@ -140,7 +148,11 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
     columns: Columns,
     callout: Callout,
     mention: Mention.configure({
-      suggestion: getUsersSuggestion(users, container),
+      suggestion: getUsersSuggestion({
+        users,
+        onSearch: onMentionSearch,
+        container,
+      }),
     }),
     'date-time': Datetime,
     'option-box': OptionBox,
@@ -168,7 +180,7 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
       selection: false,
       bulletList: false,
       orderedList: false,
-      trailingNode: true,
+      trailingNode: false,
       listKeymap: true,
     }),
     Document.extend({
@@ -189,8 +201,17 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
       className: 'umo-node-focused',
       mode: 'all',
     }),
+    TrailingNode.configure({
+      node: 'paragraph',
+    }),
     Placeholder.configure({
-      placeholder: () => String(l(doc?.placeholder || '')),
+      showOnlyCurrent: false,
+      placeholder: ({ node, pos }) => {
+        if (node.type.name === 'heading') {
+          return pos === 0 ? t('document.headingPlaceholder') : ''
+        }
+        return String(l(doc?.placeholder || ''))
+      },
     }),
     FormatPainter,
     WordWrap,

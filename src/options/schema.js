@@ -417,7 +417,7 @@ export default new ObjectSchema({
           }
           if (!value.every((item) => defaultLayouts?.includes(item))) {
             throw new Error(
-              `Key "page": Key "layouts" the array items of toolbar.menus must contain only one or multiple of ${JSON.stringify(defaultLayouts)}.`,
+              `Key "page": Key "layouts" the array items of page.layouts must contain only one or multiple of ${JSON.stringify(defaultLayouts)}.`,
             )
           }
         },
@@ -940,6 +940,15 @@ export default new ObjectSchema({
         required: false,
       },
     },
+  },
+  onMentionSearch: {
+    merge: 'replace',
+    validate(value) {
+      if (value !== null && !isAsyncFunction(value)) {
+        throw new Error('Key "onMentionSearch" must be a async function.')
+      }
+    },
+    required: false,
   },
   extensions: {
     merge: 'replace',

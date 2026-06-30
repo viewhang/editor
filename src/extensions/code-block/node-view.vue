@@ -56,7 +56,7 @@
           />
           <menus-button
             v-if="editor?.isEditable && !options.document?.readOnly"
-            class="umo-copy-button"
+            class="umo-delete-button"
             ico="node-delete"
             :text="t('bubbleMenu.delete')"
             hide-text
@@ -106,14 +106,7 @@ const updateAttribute = (attr, value) => {
 }
 
 const copyCode = () => {
-  const { copy } = useClipboard({
-    source: props.node.textContent,
-  })
-  copy()
-  useMessage('success', {
-    attach: container,
-    content: t('bubbleMenu.code.copy.success'),
-  })
+  useCopy(props.node.textContent, t('bubbleMenu.code.copy.success'), container)
 }
 </script>
 
@@ -126,6 +119,8 @@ const copyCode = () => {
     border: solid 1px var(--umo-content-node-border);
     border-radius: 3px;
     &-toolbar {
+      --td-bg-color-container-hover: rgba(0, 0, 0, 0.05);
+      --td-component-border: rgba(0, 0, 0, 0.1);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -154,15 +149,18 @@ const copyCode = () => {
         gap: 5px;
         .umo-menu-button-wrap {
           margin-right: 0;
-          .active .umo-button-content {
-            color: var(--umo-primary-color);
+          .active {
+            background-color: var(--td-bg-color-container-hover);
+            .umo-button-content {
+              color: var(--umo-primary-color);
+            }
           }
         }
       }
       .umo-button-content {
-        color: var(--umo-text-color-light);
+        color: #999;
         &:hover {
-          color: var(--umo-text-color);
+          color: #333;
         }
       }
     }
@@ -175,12 +173,21 @@ const copyCode = () => {
     }
     &-language {
       font-size: 12px;
-      color: var(--umo-text-color-light);
+      color: #999;
       padding: 0 6px;
     }
     &-theme-dark {
-      .umo-node-code-block-toolbar {
-        filter: invert(1);
+      .umo-node-code-block {
+        &-toolbar {
+          background-color: rgba(0, 0, 0, 0.95);
+          border-bottom-color: transparent;
+          --td-bg-color-container-hover: transparent;
+          .umo-button-content {
+            &:hover {
+              color: #eee;
+            }
+          }
+        }
       }
     }
     &-content {

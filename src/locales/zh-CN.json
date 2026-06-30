@@ -38,7 +38,16 @@
       "all": "常用字体",
       "recent": "最近使用",
       "used": "已使用字体",
-      "unsupport": "可能无法正常显示该字体，可能是本机未安装该字体"
+      "unsupport": "可能无法正常显示该字体，可能是本机未安装该字体",
+      "download": "下载",
+      "downloading": "下载中",
+      "downloadActionTip": "下载并在当前浏览器启用该字体",
+      "downloadStart": "{font} 正在下载，下载后将自动启用",
+      "autoDownloadStart": "正在下载文档所需字体",
+      "autoDownloadDone": "文档所需字体已下载完成并启用",
+      "downloadSuccess": "{font} 已下载并启用",
+      "downloadFailed": "{font} 下载失败，请稍后重试",
+      "noDownloadUrl": "该字体未配置下载地址"
     },
     "fontSize": {
       "text": "字体大小",
@@ -340,6 +349,8 @@
       "placeholder": "请输入或粘贴 Mermaid 代码",
       "preview": "预览",
       "notEmpty": "Mermaid 内容不能为空",
+      "codeEmpty": "Mermaid 代码不能为空",
+      "notLoaded": "Mermaid 尚未加载完成",
       "keepSize": "保持修改前的大小",
       "renderError": "Mermaid 渲染错误，请修改后重试"
     },
@@ -614,7 +625,8 @@
     }
   },
   "document": {
-    "untitled": "未命名文档"
+    "untitled": "未命名文档",
+    "headingPlaceholder": "请输入标题"
   },
   "search": {
     "text": "查找替换",
@@ -818,5 +830,16 @@
   },
   "dialog": {
     "cancel": "取消"
+  },
+  "copy": {
+    "notSupported": "当前浏览器不支持复制功能",
+    "copyFailed": "复制失败"
+  },
+  "officePaste": {
+    "imagePlaceholder": "[图片]",
+    "dialog": {
+      "title": "提示信息",
+      "body": "剪贴板内容已粘贴，但包含的图片未被正确处理，请手动复制替换文档中未处理的图片。"
+    }
   }
 }

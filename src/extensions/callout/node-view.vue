@@ -17,6 +17,7 @@
           color: attrs.fontColor,
           backgroundColor: attrs.backgroundColor,
         }"
+        @mousedown="focusCalloutContent"
       >
         <span
           v-if="attrs.icon"
@@ -61,6 +62,29 @@ const selectEmoji = (emoji) => {
     icon: emoji,
   })
 }
+
+const focusCalloutContent = (event) => {
+  if (!props.editor?.isEditable || event.button !== 0) {
+    return
+  }
+  const { target } = event
+  if (!(target instanceof HTMLElement)) {
+    return
+  }
+  // 点击文本区域时保留原生定位行为；仅为空白区域提供兜底聚焦。
+  if (target.closest('.umo-node-callout-content')) {
+    return
+  }
+  const pos = props.getPos?.()
+  if (typeof pos !== 'number') {
+    return
+  }
+  props.editor
+    .chain()
+    .focus()
+    .setTextSelection(pos + 1)
+    .run()
+}
 </script>
 
 <style lang="less">
@@ -71,24 +95,26 @@ const selectEmoji = (emoji) => {
   width: 100%;
   border: 1px solid rgba(0, 0, 0, 0.2);
   box-sizing: border-box;
-  align-items: center;
+  align-items: flex-start;
   &-icon {
     font-size: 18px;
     margin-right: 10px;
+    line-height: 1.25;
   }
   &-content {
     flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-height: 1em;
+    cursor: text;
+    white-space: pre-wrap;
+    word-break: break-word;
 
     &.umo-node-callout-empty {
       display: flex;
       align-items: center;
-      line-height: 1.5;
       &::after {
         content: attr(data-placeholder);
         opacity: 0.5;
+        pointer-events: none;
       }
       .tiptap-invisible-character {
         display: none;

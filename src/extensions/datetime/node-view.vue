@@ -23,6 +23,7 @@
           "
           :enable-time-picker="attrs.withTime"
           :mode="attrs.format === 'YYYY年M月' ? 'month' : 'date'"
+          need-confirm
           @change="datetimeChange"
         />
       </template>
@@ -89,12 +90,15 @@ const datetimeChange = (value) => {
 
 <style lang="less">
 .umo-node-datetime {
-  margin: 0 0.2em;
+  margin: 0;
+  padding: 0 0.2em;
+  box-sizing: border-box;
   background-color: transparent !important;
   vertical-align: middle;
+  display: inline-flex;
   &-text {
     box-decoration-break: clone;
-    margin: 0 0.2em;
+    margin: 0;
     border-radius: 0.2em;
     cursor: default;
     display: inline-flex;
@@ -102,7 +106,7 @@ const datetimeChange = (value) => {
     white-space: nowrap;
   }
   &-icon {
-    color: var(--umo-text-color-light);
+    color: #ccc;
     margin-right: 0.3em;
   }
   &:hover {
