@@ -6,6 +6,7 @@
       overlay-class-name="umo-ai-assistant-dropdown"
       :tooltip="t('ai.text')"
       :disabled="loading"
+      :hide-after-item-click="false"
     >
       <span class="umo-ai-trigger">
         <span class="umo-ai-trigger-icon">
@@ -15,49 +16,50 @@
         <span class="umo-ai-trigger-text">{{ t('ai.text') }}</span>
       </span>
       <template #dropmenu>
-        <div class="umo-ai-assistant-menu">
-          <button
+        <t-dropdown-menu>
+          <t-dropdown-item
             v-for="command in visibleCommands"
             :key="getAssistantCommandLabel(command, l)"
             class="umo-ai-assistant-menu-item"
-            type="button"
             :disabled="loading"
-            @click.stop="handleCommand(command)"
+            @click="handleCommand(command)"
           >
             {{ getAssistantCommandLabel(command, l) }}
-          </button>
-        </div>
-        <div
-          v-if="pendingCommand"
-          class="umo-ai-assistant-input"
-          @click.stop
-        >
-          <t-textarea
-            v-model="assistantInput"
-            :autosize="{ minRows: 2, maxRows: 4 }"
-            :maxlength="assistantMaxlength"
-            :placeholder="l(assistant?.placeholder)"
-          />
-          <div class="umo-ai-assistant-input-actions">
-            <t-button
-              size="small"
-              theme="default"
-              variant="text"
-              :disabled="loading"
-              @click="cancelCommand"
-            >
-              {{ t('dialog.cancel') }}
-            </t-button>
-            <t-button
-              size="small"
-              theme="primary"
-              :disabled="loading || !assistantInput.trim() || inputTooLong"
-              @click="submitCommand"
-            >
-              {{ t('dialog.confirm') }}
-            </t-button>
-          </div>
-        </div>
+          </t-dropdown-item>
+          <t-dropdown-item
+            v-if="pendingCommand"
+            class="umo-ai-assistant-input-item"
+            value="assistant-input"
+          >
+            <div class="umo-ai-assistant-input" @click.stop>
+              <t-textarea
+                v-model="assistantInput"
+                :autosize="{ minRows: 2, maxRows: 4 }"
+                :maxlength="assistantMaxlength"
+                :placeholder="l(assistant?.placeholder)"
+              />
+              <div class="umo-ai-assistant-input-actions">
+                <t-button
+                  size="small"
+                  theme="default"
+                  variant="text"
+                  :disabled="loading"
+                  @click="cancelCommand"
+                >
+                  {{ t('dialog.cancel') }}
+                </t-button>
+                <t-button
+                  size="small"
+                  theme="primary"
+                  :disabled="loading || !assistantInput.trim() || inputTooLong"
+                  @click="submitCommand"
+                >
+                  {{ t('dialog.confirm') }}
+                </t-button>
+              </div>
+            </div>
+          </t-dropdown-item>
+        </t-dropdown-menu>
       </template>
     </menus-button>
   </template>
@@ -143,36 +145,27 @@ const submitCommand = () => {
   .umo-dropdown__item {
     max-width: 260px !important;
   }
-}
 
-.umo-ai-assistant-menu {
-  width: 260px;
-  padding: 4px;
-  box-sizing: border-box;
+  .umo-ai-assistant-input-item {
+    cursor: default;
+
+    &:hover {
+      background: transparent;
+    }
+
+    .umo-dropdown__item-text {
+      width: 100%;
+      padding: 0;
+    }
+  }
 }
 
 .umo-ai-assistant-menu-item {
-  display: block;
-  width: 100%;
-  min-height: 32px;
-  padding: 5px 12px;
-  border: 0;
-  border-radius: var(--umo-radius);
-  background: transparent;
-  color: var(--umo-text-color);
-  font: inherit;
-  font-size: 13px;
-  line-height: 22px;
-  text-align: left;
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    background: var(--umo-button-hover-background);
-  }
-
-  &:disabled {
-    color: var(--umo-text-color-disabled);
-    cursor: not-allowed;
+  .umo-dropdown__item-text {
+    width: 260px;
+    box-sizing: border-box;
+    font-size: 13px;
+    line-height: 22px;
   }
 }
 
