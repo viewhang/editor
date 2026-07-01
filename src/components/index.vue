@@ -54,7 +54,7 @@
             <slot name="bubble_menu" v-bind="slotProps" />
           </template>
         </container-page>
-        <container-comment-anchors v-if="options.comments?.enabled" />
+        <container-comment-anchors v-if="options.comments?.enabled && isViewerMode" />
       </main>
       <footer
         v-if="!options.viewer?.enabled || options.viewer?.showStatusbar !== false"
@@ -1139,8 +1139,15 @@ const createSelectionCommentDraft = () => {
 }
 
 const getEditorContentElement = () => {
-  const editorDom = editor.value?.view?.dom
-  return editorDom?.closest('.umo-page-node-content') || editorDom || null
+  if (!editor.value || editor.value.isDestroyed) {
+    return null
+  }
+  try {
+    const editorDom = editor.value.view?.dom
+    return editorDom?.closest('.umo-page-node-content') || editorDom || null
+  } catch {
+    return null
+  }
 }
 
 const collectTextNodes = (root) => {
@@ -1232,6 +1239,11 @@ const createTextRangeForCommentAnchor = (anchor) => {
 }
 
 const refreshCommentAnchors = () => {
+  if (!options.value.comments?.enabled || !isViewerMode.value) {
+    commentAnchorRects.value = []
+    return false
+  }
+
   const root = document.querySelector(container)
   const anchors = (options.value.comments?.anchors || []).filter((anchor) => {
     return anchor?.id && anchor.status !== 'ORPHANED'

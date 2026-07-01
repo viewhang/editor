@@ -79,3 +79,14 @@ test('default extension registry includes comment anchors', () => {
   assert.match(source, /import CommentAnchor from '\.\/comment-anchor'/)
   assert.match(source, /CommentAnchor,/)
 })
+
+test('comment anchor visible styles are scoped to viewer mode', () => {
+  const source = readFileSync(
+    new URL('../src/assets/styles/editor.less', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(source, /\.umo-editor-viewer \.umo-comment-anchor/)
+  assert.match(source, /\.umo-editor-viewer \.epoch-comment-anchor/)
+  assert.doesNotMatch(source, /^\.umo-comment-anchor,\n\.epoch-comment-anchor/m)
+})
