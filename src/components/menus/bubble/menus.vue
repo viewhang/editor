@@ -1,5 +1,5 @@
 <template>
-  <menus-bubble-comment />
+  <menus-bubble-comment :divider-after="commentDividerAfter" />
   <template v-if="is('link') && attrs('link').href">
     <menus-bubble-link-open />
     <div class="umo-bubble-menu-divider"></div>
@@ -186,6 +186,7 @@
 
 <script setup>
 import { CellSelection } from '@tiptap/pm/tables'
+import { shouldRenderCommentDivider } from '@/utils/bubble-menu'
 
 const editor = inject('editor')
 const options = inject('options')
@@ -208,6 +209,46 @@ const is = (type) => {
 const attrs = (type) => {
   return editor.value.getAttributes(type)
 }
+
+const hasViewerSafeBubbleAction = () => {
+  const editorIns = editor.value
+  if (!editorIns) return false
+
+  const linkAttrs = editorIns.getAttributes('link')
+  const imageAttrs = editorIns.getAttributes('image')
+  const inlineImageAttrs = editorIns.getAttributes('inlineImage')
+
+  return (
+    (editorIns.isActive('link') && !!linkAttrs.href) ||
+    (editorIns.isActive('image') && !imageAttrs.error) ||
+    (editorIns.isActive('inlineImage') && !inlineImageAttrs.error) ||
+    editorIns.isActive('video') ||
+    editorIns.isActive('audio') ||
+    editorIns.isActive('file') ||
+    editorIns.isActive('iframe')
+  )
+}
+
+const hasEditableBubbleMenu = () => {
+  const editorIns = editor.value
+  if (!editorIns) return false
+
+  const imageAttrs = editorIns.getAttributes('image')
+  const isEmptyBubbleGroup =
+    editorIns.isActive('toc') ||
+    editorIns.isActive('pageBreak') ||
+    editorIns.isActive('horizontalRule') ||
+    editorIns.isActive('codeBlock') ||
+    !!imageAttrs.error
+
+  return !isEmptyBubbleGroup
+}
+
+const commentDividerAfter = computed(() => shouldRenderCommentDivider({
+  isViewerMode: isViewerMode.value,
+  hasViewerSafeAction: hasViewerSafeBubbleAction(),
+  hasEditableMenu: hasEditableBubbleMenu(),
+}))
 
 const getCurrentNode = (type) => {
   const { state } = editor.value

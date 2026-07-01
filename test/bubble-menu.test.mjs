@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { shouldShowBubbleMenu } from '../src/utils/bubble-menu.js'
+import {
+  shouldRenderCommentDivider,
+  shouldShowBubbleMenu,
+} from '../src/utils/bubble-menu.js'
 
 test('shows viewer comment bubble for selected text even when the readonly editor is not focused', () => {
   assert.equal(shouldShowBubbleMenu({
@@ -46,4 +49,26 @@ test('keeps edit bubble gated by editor focus and editability', () => {
     allowTextSelection: true,
     isEditable: true,
   }), false)
+})
+
+test('does not render a leading divider when viewer selection only shows comment', () => {
+  assert.equal(shouldRenderCommentDivider({
+    isViewerMode: true,
+    hasViewerSafeAction: false,
+    hasEditableMenu: false,
+  }), false)
+})
+
+test('renders comment divider only when another menu group follows comment', () => {
+  assert.equal(shouldRenderCommentDivider({
+    isViewerMode: true,
+    hasViewerSafeAction: true,
+    hasEditableMenu: false,
+  }), true)
+
+  assert.equal(shouldRenderCommentDivider({
+    isViewerMode: false,
+    hasViewerSafeAction: false,
+    hasEditableMenu: true,
+  }), true)
 })

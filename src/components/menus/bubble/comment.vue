@@ -1,6 +1,5 @@
 <template>
   <template v-if="visible">
-    <div class="umo-bubble-menu-divider"></div>
     <menus-button
       ico="reply"
       :text="label"
@@ -8,11 +7,19 @@
       force-enabled
       @menu-click="handleClick"
     />
+    <div v-if="dividerAfter" class="umo-bubble-menu-divider"></div>
   </template>
 </template>
 
 <script setup>
 import { l } from '@/composables/i18n'
+
+defineProps({
+  dividerAfter: {
+    type: Boolean,
+    default: false,
+  },
+})
 
 const editor = inject('editor')
 const options = inject('options')

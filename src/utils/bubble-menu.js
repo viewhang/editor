@@ -35,3 +35,15 @@ export const shouldShowBubbleMenu = ({
 
   return hasEditorFocus && isEditable
 }
+
+export const shouldRenderCommentDivider = ({
+  isViewerMode = false,
+  hasViewerSafeAction = false,
+  hasEditableMenu = false,
+}) => {
+  if (isViewerMode) {
+    return hasViewerSafeAction
+  }
+
+  return hasEditableMenu
+}
