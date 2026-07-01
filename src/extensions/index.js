@@ -38,6 +38,7 @@ import BulletList from './bullet-list'
 import Callout from './callout'
 import CodeBlock from './code-block'
 import Columns from './columns'
+import CommentAnchor from './comment-anchor'
 import Datetime from './datetime'
 import Echarts from './echarts'
 import File from './file'
@@ -223,6 +224,7 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
     Indent,
     TextAlign,
     NodeAlign,
+    CommentAnchor,
     LetterSpacing,
     TaskItem.configure({ nested: true }),
     LineHeight,
