@@ -16,35 +16,34 @@
 <script setup>
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 
+import {
+  shouldShowBubbleMenu as shouldShowBubbleMenuState,
+  viewerSafeBubbleTypes,
+} from '@/utils/bubble-menu'
+
 const editor = inject('editor')
 const options = inject('options')
 const isViewerMode = inject('isViewerMode', computed(() => false))
 
-const viewerSafeTypes = ['link', 'image', 'inlineImage', 'video', 'audio', 'file', 'iframe']
-
 const shouldShowBubbleMenu = ({ editor, state, from, to, view }) => {
   const selectedText = state.doc.textBetween(from, to)
-  const hasTextSelection = !state.selection.empty && selectedText.trim().length > 0
-  const hasNodeSelection = !!state.selection.node
-  const hasViewerSafeAction = viewerSafeTypes.some((type) => editor.isActive(type))
-  const hasBubbleContext = hasTextSelection || hasNodeSelection || hasViewerSafeAction
-
   const activeElement = document.activeElement
   const isChildOfMenu = activeElement?.closest?.('.umo-editor-bubble-menu')
   const hasEditorFocus = view.hasFocus() || isChildOfMenu
-  if (!hasEditorFocus || !hasBubbleContext) {
-    return false
-  }
+  const hasViewerSafeAction = viewerSafeBubbleTypes.some((type) => editor.isActive(type))
 
-  if (isViewerMode.value) {
-    const canCommentOnSelection =
-      hasTextSelection &&
-      !!options.value.comments?.enabled &&
-      options.value.viewer?.allowTextSelection !== false
-    return canCommentOnSelection || hasViewerSafeAction
-  }
-
-  return editor.isEditable
+  return shouldShowBubbleMenuState({
+    selectedText,
+    selectionEmpty: state.selection.empty,
+    hasNodeSelection: !!state.selection.node,
+    hasViewerSafeAction,
+    hasEditorFocus,
+    isViewerMode: isViewerMode.value,
+    commentsEnabled: !!options.value.comments?.enabled,
+    commentSelectionEnabled: options.value.comments?.selection?.enabled !== false,
+    allowTextSelection: options.value.viewer?.allowTextSelection !== false,
+    isEditable: editor.isEditable,
+  })
 }
 </script>
 

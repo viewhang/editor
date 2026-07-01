@@ -90,6 +90,11 @@
 </template>
 
 <script setup>
+import {
+  getPageContentElement,
+  shouldTrackPageContent,
+} from '@/utils/page-content'
+
 const container = inject('container')
 const imageViewer = inject('imageViewer')
 const pageOptions = inject('page')
@@ -115,12 +120,42 @@ let pageZoomHeight = $ref('')
 let pageContentEl = $ref(null)
 let pageHeightRaf = 0
 let pageHeightObserver = $ref(null)
+const disconnectPageHeightObserver = () => {
+  if (pageHeightObserver) {
+    pageHeightObserver.disconnect()
+    pageHeightObserver = null
+  }
+}
+const resolvePageContentElement = () => {
+  pageContentEl = getPageContentElement(container)
+  return pageContentEl
+}
+const setupPageHeightObserver = (warn = false) => {
+  disconnectPageHeightObserver()
+  if (!shouldTrackPageContent(pageOptions.value.layout)) {
+    pageContentEl = null
+    pageZoomHeight = 'auto'
+    return false
+  }
+  const nextPageContentEl = resolvePageContentElement()
+  if (!nextPageContentEl) {
+    if (warn) {
+      console.warn('The element <.umo-page-content> does not exist.')
+    }
+    return false
+  }
+  pageHeightObserver = new ResizeObserver(() => {
+    schedulePageZoomHeight()
+  })
+  pageHeightObserver.observe(nextPageContentEl)
+  return true
+}
 const updatePageZoomHeight = () => {
-  if (pageOptions.value.layout === 'web') {
+  if (!shouldTrackPageContent(pageOptions.value.layout)) {
     pageZoomHeight = 'auto'
     return
   }
-  if (!pageContentEl) {
+  if (!pageContentEl && !resolvePageContentElement()) {
     console.warn('The element <.umo-page-content> does not exist.')
     return
   }
@@ -140,22 +175,11 @@ const schedulePageZoomHeight = () => {
 }
 onMounted(async () => {
   await nextTick()
-  pageContentEl = document.querySelector(`${container} .umo-page-content`)
-  if (pageContentEl) {
-    pageHeightObserver = new ResizeObserver(() => {
-      schedulePageZoomHeight()
-    })
-    pageHeightObserver.observe(pageContentEl)
-  } else {
-    console.warn('The element <.umo-page-content> does not exist.')
-  }
+  setupPageHeightObserver(true)
   schedulePageZoomHeight()
 })
 onUnmounted(() => {
-  if (pageHeightObserver) {
-    pageHeightObserver.disconnect()
-    pageHeightObserver = null
-  }
+  disconnectPageHeightObserver()
   if (pageHeightRaf) {
     cancelAnimationFrame(pageHeightRaf)
   }
@@ -169,7 +193,9 @@ watch(
     pageOptions.value.size,
     pageOptions.value.orientation,
   ],
-  () => {
+  async () => {
+    await nextTick()
+    setupPageHeightObserver()
     schedulePageZoomHeight()
   },
   { deep: true },
