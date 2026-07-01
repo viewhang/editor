@@ -163,7 +163,17 @@ const fileResolver = createFileResolver({ options })
 // const bookmark = ref(false)
 const destroyed = ref(false)
 const typeWriterIsRunning = ref(false)
-const assistantState = ref({ loading: false, command: '', preview: '' })
+const createAssistantState = (overrides = {}) => ({
+  loading: false,
+  command: '',
+  preview: '',
+  result: '',
+  range: null,
+  commandConfig: null,
+  commandOverride: undefined,
+  ...overrides,
+})
+const assistantState = ref(createAssistantState())
 const commentAnchorRects = ref([])
 const isViewerMode = computed(() => !!options.value.viewer?.enabled)
 
@@ -840,19 +850,35 @@ const insertContent = (
     .run()
 }
 
-const applyAssistantResult = (resultText, range) => {
-  if (!editor.value || !resultText) {
+const resetAssistantState = () => {
+  assistantState.value = createAssistantState()
+}
+
+const getAssistantInsertRange = (range, mode) => {
+  if (mode === 'before') {
+    return range.from
+  }
+  if (mode === 'after') {
+    return range.to
+  }
+  return { from: range.from, to: range.to }
+}
+
+const applyAssistantOutput = (mode = 'replace') => {
+  const { result, range } = assistantState.value
+  if (!editor.value || !result || !range) {
     return false
   }
   editor.value
     .chain()
     .focus()
     .insertContentAt(
-      { from: range.from, to: range.to },
-      contentTransform(resultText),
+      getAssistantInsertRange(range, mode),
+      contentTransform(result),
       { updateSelection: true },
     )
     .run()
+  resetAssistantState()
   return true
 }
 
@@ -898,18 +924,25 @@ const runAssistantCommand = async (command, commandOverride) => {
     locale: l,
   })
   const content = buildAssistantContent(editor.value)
-  assistantState.value = { loading: true, command: commandLabel, preview: '' }
+  const nextState = (overrides = {}) => createAssistantState({
+    command: commandLabel,
+    range: { from, to, empty },
+    commandConfig: command,
+    commandOverride,
+    ...overrides,
+  })
+  assistantState.value = nextState({ loading: true })
 
   try {
     const result = await assistant.onMessage(payload, content)
     const resultText = await readAssistantResult(result, (_chunk, accumulated) => {
-      assistantState.value = {
+      assistantState.value = nextState({
         loading: true,
-        command: commandLabel,
         preview: accumulated,
-      }
+      })
     })
     if (!resultText) {
+      assistantState.value = nextState({ loading: false })
       return false
     }
     if (resultText.startsWith('[ERROR]:')) {
@@ -919,9 +952,14 @@ const runAssistantCommand = async (command, commandOverride) => {
         placement: 'bottom',
         offset: [0, -20],
       })
+      assistantState.value = nextState({ loading: false })
       return false
     }
-    applyAssistantResult(resultText, { from, to, empty })
+    assistantState.value = nextState({
+      loading: false,
+      preview: resultText,
+      result: resultText,
+    })
     return resultText
   } catch (error) {
     useMessage('error', {
@@ -931,9 +969,8 @@ const runAssistantCommand = async (command, commandOverride) => {
       offset: [0, -20],
     })
     console.error(error)
+    assistantState.value = nextState({ loading: false })
     return false
-  } finally {
-    assistantState.value = { loading: false, command: '', preview: '' }
   }
 }
 
@@ -1811,6 +1848,8 @@ provide('getVanillaHTML', getVanillaHTML)
 provide('undoHistory', undoHistory)
 provide('redoHistory', redoHistory)
 provide('runAssistantCommand', runAssistantCommand)
+provide('applyAssistantOutput', applyAssistantOutput)
+provide('resetAssistantState', resetAssistantState)
 provide('createSelectionCommentDraft', createSelectionCommentDraft)
 provide('refreshCommentAnchors', refreshCommentAnchors)
 // Exposing Methods

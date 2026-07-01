@@ -206,8 +206,8 @@ export default {
       enabled: false,
       maxlength: 100,
       placeholder: {
-        en_US: 'Enter an AI instruction',
-        zh_CN: '请输入 AI 指令',
+        en_US: 'Enter or choose a command...',
+        zh_CN: '输入或选择指令...',
       },
       commands: [
         {

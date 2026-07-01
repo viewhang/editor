@@ -160,7 +160,7 @@ test('default options expose the 9.x ai.assistant shape', async () => {
 
   assert.equal(defaultOptions.ai.assistant.enabled, false)
   assert.equal(defaultOptions.ai.assistant.maxlength, 100)
-  assert.equal(defaultOptions.ai.assistant.placeholder.zh_CN, '请输入 AI 指令')
+  assert.equal(defaultOptions.ai.assistant.placeholder.zh_CN, '输入或选择指令...')
   assert.equal(Array.isArray(defaultOptions.ai.assistant.commands), true)
   assert.equal(defaultOptions.ai.actions, undefined)
 })

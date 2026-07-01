@@ -86,17 +86,13 @@
               trigger="click"
               size="small"
               :options="selectOptions"
-              :popup-props="{
-                overlayClassName: attrs['overlay-class-name'],
+              :popup-props="getDropdownPopupProps({
                 popperOptions: {
                   modifiers: [
                     { name: 'offset', options: { offset: [-22, 0] } },
                   ],
                 },
-                onVisibleChange: popupVisileChange,
-                destroyOnClose: true,
-                attach: container,
-              }"
+              })"
               @click="attrs.onChange"
             >
               <span class="umo-button-icon-arrow umo-button-handle">
@@ -112,12 +108,7 @@
             trigger="click"
             size="small"
             :options="selectOptions"
-            :popup-props="{
-              overlayClassName: attrs['overlay-class-name'],
-              onVisibleChange: popupVisileChange,
-              destroyOnClose: true,
-              attach: container,
-            }"
+            :popup-props="getDropdownPopupProps()"
             @click="attrs.onChange"
           >
             <t-button
@@ -423,6 +414,27 @@ let tooltipForceHide = $ref(false)
 const popupVisileChange = (visible) => {
   // 隐藏 Tooltip，适用于 select、dropdown、popup 等子组件展开时，隐藏 Tooltip
   tooltipForceHide = visible
+}
+const getDropdownPopupProps = (baseProps = {}) => {
+  const customProps = attrs['popup-props'] || {}
+  const {
+    onVisibleChange,
+    'on-visible-change': onVisibleChangeKebab,
+    ...restCustomProps
+  } = customProps
+  return {
+    ...restCustomProps,
+    ...baseProps,
+    overlayClassName: attrs['overlay-class-name'],
+    popperOptions: restCustomProps.popperOptions || baseProps.popperOptions,
+    destroyOnClose: restCustomProps.destroyOnClose ?? true,
+    attach: restCustomProps.attach ?? container,
+    onVisibleChange: (visible, context) => {
+      popupVisileChange(visible)
+      onVisibleChange?.(visible, context)
+      onVisibleChangeKebab?.(visible, context)
+    },
+  }
 }
 const getTooltipContent = () => {
   if (props.tooltip === false) {
