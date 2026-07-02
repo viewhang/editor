@@ -5,6 +5,7 @@ import {
   buildUploadedImageAttrs,
   canUseRawImageSource,
   getRenderableImageSource,
+  normalizeImageSource,
   parseImageSource,
   sanitizeImageHTMLAttributes,
   shouldResolveImageSource,
@@ -161,4 +162,42 @@ test('returns only safe image sources for runtime rendering', () => {
     getRenderableImageSource({ id: '822570771095557', src: null, uploaded: true }, '/epoch-wiki/files/download/822570771095557'),
     '/epoch-wiki/files/download/822570771095557',
   )
+})
+
+test('does not stringify object values into image sources', () => {
+  const objectSource = { url: '/epoch-wiki/files/download/822570771095557' }
+
+  assert.equal(normalizeImageSource(objectSource), null)
+  assert.equal(parseImageSource(objectSource), null)
+  assert.equal(
+    getRenderableImageSource({ id: null, src: objectSource, uploaded: true }, null),
+    null,
+  )
+  assert.equal(
+    getRenderableImageSource({ id: '822570771095557', src: null, uploaded: true }, objectSource),
+    null,
+  )
+})
+
+test('does not use object file resolver fallbacks as urls', async () => {
+  const resolver = createFileResolver({
+    options: {
+      value: {
+        onFileLoad: async () => undefined,
+      },
+    },
+  })
+
+  const resolved = await resolver.resolve(
+    {
+      src: { url: '/epoch-wiki/files/download/822570771095557' },
+      nodeType: 'image',
+    },
+    {
+      reason: 'display',
+      allowFallback: true,
+    },
+  )
+
+  assert.equal(resolved.url, null)
 })

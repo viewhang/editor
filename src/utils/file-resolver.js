@@ -2,21 +2,32 @@ import { isNumber, isRecord, isString } from '@tool-belt/type-predicates'
 
 const DEFAULT_EXPIRE_IN = 5 * 60 * 1000
 
+const normalizeUrl = (url) => {
+  if (!isString(url)) {
+    return null
+  }
+  const value = url.trim()
+  return value === '' ? null : value
+}
+
 const getRawUrl = (file) => {
-  return file?.src || file?.url || null
+  return normalizeUrl(file?.src) || normalizeUrl(file?.url)
 }
 
 const normalizeResolvedFile = (result, fallbackUrl) => {
-  if (isString(result)) {
+  const fallback = normalizeUrl(fallbackUrl)
+
+  if (isString(result) && result.trim() !== '') {
     return {
-      url: result,
+      url: result.trim(),
       expiresAt: Date.now() + DEFAULT_EXPIRE_IN,
     }
   }
 
-  if (isRecord(result) && isString(result.url) && result.url !== '') {
+  if (isRecord(result) && isString(result.url) && result.url.trim() !== '') {
     return {
       ...result,
+      url: result.url.trim(),
       expiresAt: isNumber(result.expiresAt)
         ? result.expiresAt
         : Date.now() + DEFAULT_EXPIRE_IN,
@@ -24,7 +35,7 @@ const normalizeResolvedFile = (result, fallbackUrl) => {
   }
 
   return {
-    url: fallbackUrl,
+    url: fallback,
     expiresAt: Date.now() + DEFAULT_EXPIRE_IN,
   }
 }

@@ -3,7 +3,7 @@ const normalizeId = (id) => {
 }
 
 const normalizeUrl = (url) => {
-  return url == null ? '' : String(url).trim()
+  return typeof url === 'string' ? url.trim() : ''
 }
 
 const isEmptyImageSource = (src) => {

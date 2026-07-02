@@ -20,3 +20,7 @@ test('image node view handles VueUse image errors locally', () => {
 test('image node view watches persistent file id changes', () => {
   assert.match(source, /\(\)\s*=>\s*\[attrs\.id,\s*attrs\.src,\s*attrs\.uploaded\]/)
 })
+
+test('image node view normalizes uploaded runtime url before rendering', () => {
+  assert.match(source, /resolvedSrc = normalizeImageSource\(result\?\.url\) \|\| resolvedSrc/)
+})

@@ -170,7 +170,7 @@ const uploadImage = async () => {
     const file = uploadFileMap.value.get(attrs.id)
     const result = await options.value?.onFileUpload?.(file)
     const uploadedAttrs = buildUploadedImageAttrs(result)
-    resolvedSrc = result?.url || resolvedSrc
+    resolvedSrc = normalizeImageSource(result?.url) || resolvedSrc
     if (containerRef.value) {
       updateAttributesWithoutHistory(
         editor.value,
