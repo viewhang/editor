@@ -222,17 +222,23 @@ const resolveImageSource = async (force = false) => {
 
 const onLoad = async () => {
   // updateAttributes({ error: false })
-  const { clientWidth = 1, clientHeight = 1 } = imageRef
-  const ratio = clientWidth / clientHeight
-  maxWidth = containerRef.value?.$el.clientWidth
+  const imageElement = imageRef
+  if (!imageElement) {
+    return
+  }
+  const { clientWidth = 1, clientHeight = 1 } = imageElement
+  const ratio = clientHeight ? clientWidth / clientHeight : 1
+  maxWidth = containerRef.value?.$el.clientWidth || clientWidth || 1
   maxHeight = maxWidth / ratio
   if (attrs.width === null) {
     updateAttributes({ width: maxWidth })
   }
   if ([null, 'auto', 0].includes(attrs.height)) {
     await nextTick()
-    const rect = imageRef?.getBoundingClientRect()
-    updateAttributes({ height: Number(rect.height?.toFixed(2)) })
+    const rect = imageElement.getBoundingClientRect()
+    if (rect?.height) {
+      updateAttributes({ height: Number(rect.height.toFixed(2)) })
+    }
   }
 }
 

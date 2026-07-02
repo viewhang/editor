@@ -24,3 +24,9 @@ test('image node view watches persistent file id changes', () => {
 test('image node view normalizes uploaded runtime url before rendering', () => {
   assert.match(source, /resolvedSrc = normalizeImageSource\(result\?\.url\) \|\| resolvedSrc/)
 })
+
+test('image node view guards image load before the img ref is ready', () => {
+  assert.match(source, /const imageElement = imageRef/)
+  assert.match(source, /if \(!imageElement\) \{\s*return\s*\}/)
+  assert.match(source, /const \{ clientWidth = 1, clientHeight = 1 \} = imageElement/)
+})
