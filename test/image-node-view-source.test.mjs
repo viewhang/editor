@@ -12,6 +12,8 @@ test('image node view handles VueUse image errors locally', () => {
   assert.match(source, /const imageLoadOptions = computed\(\(\) => \(\{/)
   assert.match(source, /src:\s*imageSrcRef\.value \|\| EMPTY_IMAGE_SOURCE/)
   assert.match(source, /useImage\(\s*imageLoadOptions\s*,/)
+  assert.match(source, /imageSrc && isLoading\.value/)
+  assert.match(source, /imageSrc && error\.value/)
   assert.match(source, /onError:\s*\(\)\s*=>\s*\{\}/)
 })
 

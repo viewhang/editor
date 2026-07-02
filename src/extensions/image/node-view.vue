@@ -130,9 +130,11 @@ const { isLoading, error } = useImage(
   },
 )
 let isResolvingSource = $ref(shouldResolveImageSource(attrs))
-const imageLoading = $computed(() => isResolvingSource || (imageSrc && isLoading))
+const imageLoading = $computed(
+  () => isResolvingSource || (imageSrc && isLoading.value),
+)
 const imageError = $computed(() =>
-  Boolean((imageSrc && error) || (!imageSrc && !isResolvingSource)),
+  Boolean((imageSrc && error.value) || (!imageSrc && !isResolvingSource)),
 )
 
 const containerRef = ref(null)
