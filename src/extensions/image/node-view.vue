@@ -319,8 +319,13 @@ watch(
   },
 )
 watch(
-  () => [attrs.src, attrs.uploaded],
-  async ([src]) => {
+  () => [attrs.id, attrs.src, attrs.uploaded],
+  async ([id, src], [oldId] = []) => {
+    if (id !== oldId) {
+      // 仅保存文件 id 的图片切换文档或节点复用时，src/uploaded 可能不变，必须按新 id 重新解析。
+      isResolvingSource = shouldResolveImageSource(attrs)
+      resolvedSrc = null
+    }
     if (attrs.uploaded === false && !error.value) {
       resolvedSrc = normalizeImageSource(src)
       if (src?.startsWith('data:image')) {

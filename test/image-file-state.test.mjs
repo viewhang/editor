@@ -74,6 +74,38 @@ test('does not fallback to persisted src when caller disables fallback', async (
   assert.equal(resolved.url, null)
 })
 
+test('calls onFileLoad for id-only uploaded images', async () => {
+  const calls = []
+  const resolver = createFileResolver({
+    options: {
+      value: {
+        onFileLoad: async (file) => {
+          calls.push(file)
+          return { url: `/epoch-wiki/files/download/${file.id}` }
+        },
+      },
+    },
+  })
+
+  const resolved = await resolver.resolve(
+    {
+      id: '822586469134341',
+      src: null,
+      uploaded: true,
+      nodeType: 'image',
+    },
+    {
+      reason: 'display',
+      allowFallback: false,
+    },
+  )
+
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].id, '822586469134341')
+  assert.equal(calls[0].rawUrl, null)
+  assert.equal(resolved.url, '/epoch-wiki/files/download/822586469134341')
+})
+
 test('omits empty image src from serialized html attributes', () => {
   assert.deepEqual(
     sanitizeImageHTMLAttributes({
