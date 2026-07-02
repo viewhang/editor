@@ -13,14 +13,14 @@
     <div
       class="umo-node-container umo-node-image"
       :class="{
-        'is-loading': imageSrc && isLoading,
-        'is-error': imageSrc && error,
+        'is-loading': imageLoading,
+        'is-error': imageError,
         'umo-hover-shadow': !options.document?.readOnly,
         'umo-select-outline': !attrs.draggable,
       }"
     >
       <div
-        v-if="imageSrc && isLoading"
+        v-if="imageLoading"
         class="loading"
         :style="{ height: `${attrs.height}px` }"
       >
@@ -28,7 +28,7 @@
         {{ t('node.image.loading') }}
       </div>
       <div
-        v-else-if="imageSrc && error"
+        v-else-if="imageError"
         class="error"
         :style="{ height: `${attrs.height}px` }"
       >
@@ -36,7 +36,7 @@
         {{ t('node.image.error') }}
       </div>
       <drager
-        v-else
+        v-else-if="imageSrc"
         ref="dragRef"
         :class="{ 'is-draggable': attrs.draggable }"
         :style="{
@@ -100,6 +100,8 @@ import { updateAttributesWithoutHistory } from '../file'
 import {
   buildUploadedImageAttrs,
   canUseRawImageSource,
+  getRenderableImageSource,
+  normalizeImageSource,
   shouldResolveImageSource,
 } from './file-state'
 
@@ -113,10 +115,14 @@ const attrs = $computed(() => props.node.attrs)
 const { updateAttributes, getPos } = props
 const options = inject('options')
 let resolvedSrc = $ref(null)
-const imageSrc = $computed(() => {
-  return resolvedSrc || (canUseRawImageSource(attrs) ? attrs.src : null)
-})
-const { isLoading, error } = useImage({ src: imageSrc })
+const imageSrcRef = computed(() => getRenderableImageSource(attrs, resolvedSrc))
+const imageSrc = $computed(() => imageSrcRef.value)
+const { isLoading, error } = useImage({ src: imageSrcRef })
+let isResolvingSource = $ref(shouldResolveImageSource(attrs))
+const imageLoading = $computed(() => isResolvingSource || (imageSrc && isLoading))
+const imageError = $computed(() =>
+  Boolean((imageSrc && error) || (!imageSrc && !isResolvingSource)),
+)
 
 const containerRef = ref(null)
 const imageRef = $ref(null)
@@ -171,9 +177,11 @@ const uploadImage = async () => {
 // 运行时解析图片访问地址，避免把短期 token 固化到文档内容里。
 const resolveImageSource = async (force = false) => {
   if (!shouldResolveImageSource(attrs)) {
-    resolvedSrc = attrs.src
+    resolvedSrc = normalizeImageSource(attrs.src)
+    isResolvingSource = false
     return
   }
+  isResolvingSource = true
   try {
     const result = await fileResolver.resolve(
       {
@@ -187,13 +195,15 @@ const resolveImageSource = async (force = false) => {
         allowFallback: canUseRawImageSource(attrs),
       },
     )
-    resolvedSrc = result.url || (canUseRawImageSource(attrs) ? attrs.src : null)
+    resolvedSrc = getRenderableImageSource(attrs, result.url)
   } catch (error) {
-    resolvedSrc = canUseRawImageSource(attrs) ? attrs.src : null
+    resolvedSrc = getRenderableImageSource(attrs, null)
     useMessage('error', {
       attach: container,
       content: error.message,
     })
+  } finally {
+    isResolvingSource = false
   }
 }
 
@@ -306,7 +316,7 @@ watch(
   () => [attrs.src, attrs.uploaded],
   async ([src]) => {
     if (attrs.uploaded === false && !error.value) {
-      resolvedSrc = src
+      resolvedSrc = normalizeImageSource(src)
       if (src?.startsWith('data:image')) {
         const id = attrs.id || shortId(10)
         const name = `${attrs.type}-${id}`

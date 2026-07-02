@@ -3,6 +3,8 @@ import test from 'node:test'
 
 import {
   buildUploadedImageAttrs,
+  canUseRawImageSource,
+  getRenderableImageSource,
   parseImageSource,
   sanitizeImageHTMLAttributes,
   shouldResolveImageSource,
@@ -103,4 +105,28 @@ test('parses persisted null image src values as empty runtime src', () => {
   assert.equal(parseImageSource('undefined'), null)
   assert.equal(parseImageSource(''), null)
   assert.equal(parseImageSource('/files/download/42'), '/files/download/42')
+})
+
+test('treats persisted null image src values as unavailable at runtime', () => {
+  assert.equal(shouldResolveImageSource({ id: null, src: 'null', uploaded: true }), false)
+  assert.equal(canUseRawImageSource({ id: null, src: 'null', uploaded: true }), false)
+})
+
+test('returns only safe image sources for runtime rendering', () => {
+  assert.equal(
+    getRenderableImageSource({ id: null, src: 'null', uploaded: true }, null),
+    null,
+  )
+  assert.equal(
+    getRenderableImageSource({ id: '822570771095557', src: 'http://old-host/file.png', uploaded: true }, null),
+    null,
+  )
+  assert.equal(
+    getRenderableImageSource({ id: null, src: 'http://old-host/file.png', uploaded: true }, null),
+    'http://old-host/file.png',
+  )
+  assert.equal(
+    getRenderableImageSource({ id: '822570771095557', src: null, uploaded: true }, '/epoch-wiki/files/download/822570771095557'),
+    '/epoch-wiki/files/download/822570771095557',
+  )
 })

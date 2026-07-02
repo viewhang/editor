@@ -11,6 +11,10 @@ const isEmptyImageSource = (src) => {
   return value === '' || value === 'null' || value === 'undefined'
 }
 
+export const normalizeImageSource = (src) => {
+  return isEmptyImageSource(src) ? null : normalizeUrl(src)
+}
+
 export const hasPersistentImageId = (attrs = {}) => {
   return normalizeId(attrs.id) !== ''
 }
@@ -43,16 +47,28 @@ export const shouldResolveImageSource = (attrs = {}) => {
     return false
   }
 
-  return hasPersistentImageId(attrs) || normalizeUrl(attrs.src) !== ''
+  return hasPersistentImageId(attrs) || normalizeImageSource(attrs.src) !== null
 }
 
 export const canUseRawImageSource = (attrs = {}) => {
   // 上传中的本地预览需要直接展示 src；没有 id 的旧数据也只能按旧 url 兜底。
-  return attrs.uploaded === false || !hasPersistentImageId(attrs)
+  return (
+    (attrs.uploaded === false || !hasPersistentImageId(attrs)) &&
+    normalizeImageSource(attrs.src) !== null
+  )
+}
+
+export const getRenderableImageSource = (attrs = {}, resolvedSrc = null) => {
+  const resolved = normalizeImageSource(resolvedSrc)
+  if (resolved) {
+    return resolved
+  }
+
+  return canUseRawImageSource(attrs) ? normalizeImageSource(attrs.src) : null
 }
 
 export const parseImageSource = (src) => {
-  return isEmptyImageSource(src) ? null : src
+  return normalizeImageSource(src)
 }
 
 export const sanitizeImageHTMLAttributes = (attrs = {}) => {
