@@ -6,6 +6,11 @@ const normalizeUrl = (url) => {
   return url == null ? '' : String(url).trim()
 }
 
+const isEmptyImageSource = (src) => {
+  const value = normalizeUrl(src).toLowerCase()
+  return value === '' || value === 'null' || value === 'undefined'
+}
+
 export const hasPersistentImageId = (attrs = {}) => {
   return normalizeId(attrs.id) !== ''
 }
@@ -44,4 +49,19 @@ export const shouldResolveImageSource = (attrs = {}) => {
 export const canUseRawImageSource = (attrs = {}) => {
   // 上传中的本地预览需要直接展示 src；没有 id 的旧数据也只能按旧 url 兜底。
   return attrs.uploaded === false || !hasPersistentImageId(attrs)
+}
+
+export const parseImageSource = (src) => {
+  return isEmptyImageSource(src) ? null : src
+}
+
+export const sanitizeImageHTMLAttributes = (attrs = {}) => {
+  const sanitized = { ...attrs }
+
+  // HTML 中的 src="null" 会被浏览器解析成当前路由下的相对地址，例如 /doc/{id}/null。
+  if (isEmptyImageSource(sanitized.src)) {
+    delete sanitized.src
+  }
+
+  return sanitized
 }

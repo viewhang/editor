@@ -3,6 +3,7 @@ import Image from '@tiptap/extension-image'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 
 import NodeView from './node-view.vue'
+import { parseImageSource, sanitizeImageHTMLAttributes } from './file-state'
 
 const parseDimension = (element, name) => {
   const styleValue = element.style?.[name]
@@ -48,6 +49,7 @@ const customImage = Image.extend({
       },
       src: {
         default: null,
+        parseHTML: (element) => parseImageSource(element.getAttribute('src')),
       },
       config: {
         default: null,
@@ -103,6 +105,9 @@ const customImage = Image.extend({
   },
   parseHTML() {
     return [{ tag: 'img' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['img', mergeAttributes(sanitizeImageHTMLAttributes(HTMLAttributes))]
   },
   addPasteRules() {
     return [
@@ -186,7 +191,10 @@ export const InlineImage = customImage.extend({
     return [{ tag: 'inline-img' }]
   },
   renderHTML({ HTMLAttributes }) {
-    return ['inline-img', mergeAttributes(HTMLAttributes)]
+    return [
+      'inline-img',
+      mergeAttributes(sanitizeImageHTMLAttributes(HTMLAttributes)),
+    ]
   },
   addNodeView() {
     return VueNodeViewRenderer(NodeView)

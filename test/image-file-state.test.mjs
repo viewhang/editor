@@ -3,6 +3,8 @@ import test from 'node:test'
 
 import {
   buildUploadedImageAttrs,
+  parseImageSource,
+  sanitizeImageHTMLAttributes,
   shouldResolveImageSource,
 } from '../src/extensions/image/file-state.js'
 import { createFileResolver } from '../src/utils/file-resolver.js'
@@ -68,4 +70,37 @@ test('does not fallback to persisted src when caller disables fallback', async (
   )
 
   assert.equal(resolved.url, null)
+})
+
+test('omits empty image src from serialized html attributes', () => {
+  assert.deepEqual(
+    sanitizeImageHTMLAttributes({
+      id: '822570771095557',
+      src: null,
+      uploaded: true,
+    }),
+    {
+      id: '822570771095557',
+      uploaded: true,
+    },
+  )
+
+  assert.deepEqual(
+    sanitizeImageHTMLAttributes({
+      id: '822570771095557',
+      src: 'null',
+      uploaded: true,
+    }),
+    {
+      id: '822570771095557',
+      uploaded: true,
+    },
+  )
+})
+
+test('parses persisted null image src values as empty runtime src', () => {
+  assert.equal(parseImageSource('null'), null)
+  assert.equal(parseImageSource('undefined'), null)
+  assert.equal(parseImageSource(''), null)
+  assert.equal(parseImageSource('/files/download/42'), '/files/download/42')
 })
