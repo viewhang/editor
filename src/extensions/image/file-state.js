@@ -1,7 +1,3 @@
-const normalizeId = (id) => {
-  return id == null ? '' : String(id).trim()
-}
-
 const normalizeUrl = (url) => {
   return typeof url === 'string' ? url.trim() : ''
 }
@@ -15,56 +11,18 @@ export const normalizeImageSource = (src) => {
   return isEmptyImageSource(src) ? null : normalizeUrl(src)
 }
 
-export const hasPersistentImageId = (attrs = {}) => {
-  return normalizeId(attrs.id) !== ''
-}
-
 export const buildUploadedImageAttrs = (result = {}) => {
   const payload = result || {}
-  const id = normalizeId(payload.id)
-  if (id) {
-    // 上传结果有持久化文件 id 时，文档只保存 id；访问地址交给 onFileLoad 动态解析。
-    return {
-      id,
-      src: null,
-      uploaded: true,
-    }
-  }
-
   const url = normalizeUrl(payload.url)
   if (!url) {
-    throw new Error('Image upload result must include id or url.')
+    throw new Error('Image upload result must include url.')
   }
 
   return {
+    id: payload.id ?? null,
     src: url,
     uploaded: true,
   }
-}
-
-export const shouldResolveImageSource = (attrs = {}) => {
-  if (attrs.uploaded === false) {
-    return false
-  }
-
-  return hasPersistentImageId(attrs) || normalizeImageSource(attrs.src) !== null
-}
-
-export const canUseRawImageSource = (attrs = {}) => {
-  // 上传中的本地预览需要直接展示 src；没有 id 的旧数据也只能按旧 url 兜底。
-  return (
-    (attrs.uploaded === false || !hasPersistentImageId(attrs)) &&
-    normalizeImageSource(attrs.src) !== null
-  )
-}
-
-export const getRenderableImageSource = (attrs = {}, resolvedSrc = null) => {
-  const resolved = normalizeImageSource(resolvedSrc)
-  if (resolved) {
-    return resolved
-  }
-
-  return canUseRawImageSource(attrs) ? normalizeImageSource(attrs.src) : null
 }
 
 export const parseImageSource = (src) => {

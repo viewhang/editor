@@ -99,24 +99,19 @@ import { dataURLToFile } from '@/utils/file'
 import { updateAttributesWithoutHistory } from '../file'
 import {
   buildUploadedImageAttrs,
-  canUseRawImageSource,
-  getRenderableImageSource,
   normalizeImageSource,
-  shouldResolveImageSource,
 } from './file-state'
 
 const container = inject('container')
 const editor = inject('editor')
 const uploadFileMap = inject('uploadFileMap')
 const imageViewer = inject('imageViewer')
-const fileResolver = inject('fileResolver')
 const props = defineProps(nodeViewProps)
 const attrs = $computed(() => props.node.attrs)
 const { updateAttributes, getPos } = props
 const options = inject('options')
 const EMPTY_IMAGE_SOURCE = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='
-let resolvedSrc = $ref(null)
-const imageSrcRef = computed(() => getRenderableImageSource(attrs, resolvedSrc))
+const imageSrcRef = computed(() => normalizeImageSource(attrs.src))
 const imageSrc = $computed(() => imageSrcRef.value)
 const imageLoadOptions = computed(() => ({
   // VueUse 的 useImage 只会解开第一层 ref，这里必须传真实字符串，不能传 imageSrcRef 本身。
@@ -129,12 +124,9 @@ const { isLoading, error } = useImage(
     onError: () => {},
   },
 )
-let isResolvingSource = $ref(shouldResolveImageSource(attrs))
-const imageLoading = $computed(
-  () => isResolvingSource || (imageSrc && isLoading.value),
-)
+const imageLoading = $computed(() => imageSrc && isLoading.value)
 const imageError = $computed(() =>
-  Boolean((imageSrc && error.value) || (!imageSrc && !isResolvingSource)),
+  Boolean(imageSrc && error.value),
 )
 
 const containerRef = ref(null)
@@ -162,7 +154,7 @@ const uploadImage = async () => {
     return
   }
   if (!attrs.id || !uploadFileMap.value.has(attrs.id)) {
-    // 旧内容可能没有进入上传队列。标记为已上传后，下一轮 watcher 会按 id/src 解析展示地址。
+    // 旧内容可能没有进入上传队列，这里只恢复上传状态，不额外解析文件地址。
     updateAttributesWithoutHistory(editor.value, { uploaded: true }, getPos())
     return
   }
@@ -170,7 +162,6 @@ const uploadImage = async () => {
     const file = uploadFileMap.value.get(attrs.id)
     const result = await options.value?.onFileUpload?.(file)
     const uploadedAttrs = buildUploadedImageAttrs(result)
-    resolvedSrc = normalizeImageSource(result?.url) || resolvedSrc
     if (containerRef.value) {
       updateAttributesWithoutHistory(
         editor.value,
@@ -184,39 +175,6 @@ const uploadImage = async () => {
       attach: container,
       content: error.message,
     })
-  }
-}
-
-// 运行时解析图片访问地址，避免把短期 token 固化到文档内容里。
-const resolveImageSource = async (force = false) => {
-  if (!shouldResolveImageSource(attrs)) {
-    resolvedSrc = normalizeImageSource(attrs.src)
-    isResolvingSource = false
-    return
-  }
-  isResolvingSource = true
-  try {
-    const result = await fileResolver.resolve(
-      {
-        ...attrs,
-        nodeType: attrs.inline ? 'inlineImage' : 'image',
-      },
-      {
-        force,
-        reason: 'display',
-        // 已有文件 id 的图片必须走 onFileLoad，不能再静默退回文档里的旧 src。
-        allowFallback: canUseRawImageSource(attrs),
-      },
-    )
-    resolvedSrc = getRenderableImageSource(attrs, result.url)
-  } catch (error) {
-    resolvedSrc = getRenderableImageSource(attrs, null)
-    useMessage('error', {
-      attach: container,
-      content: error.message,
-    })
-  } finally {
-    isResolvingSource = false
   }
 }
 
@@ -341,15 +299,9 @@ watch(
   },
 )
 watch(
-  () => [attrs.id, attrs.src, attrs.uploaded],
-  async ([id, src], [oldId] = []) => {
-    if (id !== oldId) {
-      // 仅保存文件 id 的图片切换文档或节点复用时，src/uploaded 可能不变，必须按新 id 重新解析。
-      isResolvingSource = shouldResolveImageSource(attrs)
-      resolvedSrc = null
-    }
+  () => attrs.src,
+  async (src) => {
     if (attrs.uploaded === false && !error.value) {
-      resolvedSrc = normalizeImageSource(src)
       if (src?.startsWith('data:image')) {
         const id = attrs.id || shortId(10)
         const name = `${attrs.type}-${id}`
@@ -364,10 +316,7 @@ watch(
       }
       await nextTick()
       uploadImage()
-      return
     }
-
-    await resolveImageSource()
   },
   { immediate: true },
 )
@@ -379,19 +328,12 @@ watch(
       { error: err?.type ? err.type === 'error' : false },
       getPos(),
     )
-    if (err?.type === 'error' && attrs.uploaded !== false) {
-      resolveImageSource(true)
-    }
   },
 )
 
 onBeforeUnmount(() => {
   setTimeout(() => {
     if (editor.value.isDestroyed) return
-    fileResolver.clear({
-      ...attrs,
-      nodeType: attrs.inline ? 'inlineImage' : 'image',
-    })
     options.value.onFileDelete(
       attrs.id,
       attrs.src,

@@ -17,12 +17,16 @@ test('image node view handles VueUse image errors locally', () => {
   assert.match(source, /onError:\s*\(\)\s*=>\s*\{\}/)
 })
 
-test('image node view watches persistent file id changes', () => {
-  assert.match(source, /\(\)\s*=>\s*\[attrs\.id,\s*attrs\.src,\s*attrs\.uploaded\]/)
+test('image node view renders the persisted src directly', () => {
+  assert.match(source, /const imageSrcRef = computed\(\(\) => normalizeImageSource\(attrs\.src\)\)/)
+  assert.match(source, /\(\)\s*=>\s*attrs\.src/)
+  assert.doesNotMatch(source, /fileResolver\.resolve/)
+  assert.doesNotMatch(source, /resolveImageSource/)
 })
 
-test('image node view normalizes uploaded runtime url before rendering', () => {
-  assert.match(source, /resolvedSrc = normalizeImageSource\(result\?\.url\) \|\| resolvedSrc/)
+test('image node view writes uploaded urls back to image attrs', () => {
+  assert.match(source, /const uploadedAttrs = buildUploadedImageAttrs\(result\)/)
+  assert.match(source, /updateAttributesWithoutHistory\(\s*editor\.value,\s*uploadedAttrs,\s*getPos\(\),\s*\)/)
 })
 
 test('image node view guards image load before the img ref is ready', () => {
