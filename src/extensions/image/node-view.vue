@@ -114,11 +114,16 @@ const props = defineProps(nodeViewProps)
 const attrs = $computed(() => props.node.attrs)
 const { updateAttributes, getPos } = props
 const options = inject('options')
+const EMPTY_IMAGE_SOURCE = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='
 let resolvedSrc = $ref(null)
 const imageSrcRef = computed(() => getRenderableImageSource(attrs, resolvedSrc))
 const imageSrc = $computed(() => imageSrcRef.value)
+const imageLoadOptions = computed(() => ({
+  // VueUse 的 useImage 只会解开第一层 ref，这里必须传真实字符串，不能传 imageSrcRef 本身。
+  src: imageSrcRef.value || EMPTY_IMAGE_SOURCE,
+}))
 const { isLoading, error } = useImage(
-  { src: imageSrcRef },
+  imageLoadOptions,
   {
     // VueUse 默认会把图片加载失败上报到 reportError，页面会出现 Uncaught Event。
     onError: () => {},
