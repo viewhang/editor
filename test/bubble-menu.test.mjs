@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  getBubbleNodeAttributes,
+  isBubbleNodeActive,
   shouldRenderCommentDivider,
   shouldShowBubbleMenu,
 } from '../src/utils/bubble-menu.js'
@@ -71,4 +73,26 @@ test('renders comment divider only when another menu group follows comment', () 
     hasViewerSafeAction: false,
     hasEditableMenu: true,
   }), true)
+})
+
+test('treats selected image node as active when editor active-state misses node views', () => {
+  const selectedAttrs = {
+    id: '822617411457029',
+    error: false,
+  }
+  const editor = {
+    state: {
+      selection: {
+        node: {
+          type: { name: 'image' },
+          attrs: selectedAttrs,
+        },
+      },
+    },
+    isActive: () => false,
+    getAttributes: () => ({ error: true }),
+  }
+
+  assert.equal(isBubbleNodeActive(editor, 'image'), true)
+  assert.deepEqual(getBubbleNodeAttributes(editor, 'image'), selectedAttrs)
 })

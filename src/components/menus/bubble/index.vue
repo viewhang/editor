@@ -17,6 +17,7 @@
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 
 import {
+  isBubbleNodeActive,
   shouldShowBubbleMenu as shouldShowBubbleMenuState,
   viewerSafeBubbleTypes,
 } from '@/utils/bubble-menu'
@@ -30,7 +31,7 @@ const shouldShowBubbleMenu = ({ editor, state, from, to, view }) => {
   const activeElement = document.activeElement
   const isChildOfMenu = activeElement?.closest?.('.umo-editor-bubble-menu')
   const hasEditorFocus = view.hasFocus() || isChildOfMenu
-  const hasViewerSafeAction = viewerSafeBubbleTypes.some((type) => editor.isActive(type))
+  const hasViewerSafeAction = viewerSafeBubbleTypes.some((type) => isBubbleNodeActive(editor, type))
 
   return shouldShowBubbleMenuState({
     selectedText,

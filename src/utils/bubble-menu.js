@@ -1,5 +1,25 @@
 export const viewerSafeBubbleTypes = ['link', 'image', 'inlineImage', 'video', 'audio', 'file', 'iframe']
 
+const getSelectedNode = (editor) => editor?.state?.selection?.node || null
+
+export const isBubbleNodeActive = (editor, type) => {
+  const selectedNode = getSelectedNode(editor)
+  if (selectedNode?.type?.name === type) {
+    return true
+  }
+
+  return !!editor?.isActive?.(type)
+}
+
+export const getBubbleNodeAttributes = (editor, type) => {
+  const selectedNode = getSelectedNode(editor)
+  if (selectedNode?.type?.name === type) {
+    return selectedNode.attrs || {}
+  }
+
+  return editor?.getAttributes?.(type) || {}
+}
+
 export const shouldShowBubbleMenu = ({
   selectedText = '',
   selectionEmpty = true,

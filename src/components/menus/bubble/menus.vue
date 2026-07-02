@@ -186,7 +186,11 @@
 
 <script setup>
 import { CellSelection } from '@tiptap/pm/tables'
-import { shouldRenderCommentDivider } from '@/utils/bubble-menu'
+import {
+  getBubbleNodeAttributes,
+  isBubbleNodeActive,
+  shouldRenderCommentDivider,
+} from '@/utils/bubble-menu'
 
 const editor = inject('editor')
 const options = inject('options')
@@ -204,10 +208,10 @@ const is = (type) => {
     return selection instanceof CellSelection
   }
 
-  return editorIns.isActive(type)
+  return isBubbleNodeActive(editorIns, type)
 }
 const attrs = (type) => {
-  return editor.value.getAttributes(type)
+  return getBubbleNodeAttributes(editor.value, type)
 }
 
 const hasViewerSafeBubbleAction = () => {
