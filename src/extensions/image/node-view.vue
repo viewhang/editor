@@ -8,7 +8,7 @@
     }"
     :style="nodeStyle"
     @dblclick="openImageViewer"
-    @click.capture="editor?.commands.setNodeSelection(getPos())"
+    @click.capture="selectImageNode"
   >
     <div
       class="umo-node-container umo-node-image"
@@ -252,10 +252,19 @@ const onResize = ({ width, height }) => {
   })
 }
 
+const selectImageNode = () => {
+  const pos = getPos()
+  if (typeof pos !== 'number') {
+    return
+  }
+  editor.value?.commands.setNodeSelection(pos)
+  editor.value?.view?.focus()
+}
+
 const dragRef = $ref(null)
 let isMousedown = $ref(false)
 const onMousedown = (e) => {
-  containerRef.value?.$el.click()
+  selectImageNode()
   if (!attrs.draggable) {
     return
   }

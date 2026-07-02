@@ -30,3 +30,10 @@ test('image node view guards image load before the img ref is ready', () => {
   assert.match(source, /if \(!imageElement\) \{\s*return\s*\}/)
   assert.match(source, /const \{ clientWidth = 1, clientHeight = 1 \} = imageElement/)
 })
+
+test('image node view selects the editor node directly when interacting with the image', () => {
+  assert.match(source, /@click\.capture="selectImageNode"/)
+  assert.match(source, /const selectImageNode = \(\) => \{/)
+  assert.match(source, /editor\.value\?\.commands\.setNodeSelection\(pos\)/)
+  assert.match(source, /selectImageNode\(\)\s*if \(!attrs\.draggable\)/)
+})
