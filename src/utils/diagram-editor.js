@@ -1,9 +1,5 @@
 import { useI18n } from '@/composables/i18n'
-
-const locales = {
-  'zh-CN': 'zh',
-  'en-US': 'en',
-}
+import { buildDiagramFrameSrc, getDiagramConfigurePayload } from './diagram-editor-options'
 
 // https://www.diagrams.com/doc/faq/embed-mode
 class DiagramEditor {
@@ -22,9 +18,11 @@ class DiagramEditor {
     this.xml = null
     this.format = 'xmlsvg'
     this.data = null
+    this.config = {}
 
     this.domain = domain || this.domain
     this.params = { ...this.params, ...params }
+    this.config = getDiagramConfigurePayload(this.params)
     this.container = container
   }
 
@@ -59,14 +57,17 @@ class DiagramEditor {
 
   // 创建 iframe
   createFrame() {
-    const params = Object.keys(this.params)
-      .map((key) => `${key}=${this.params[key]}`)
-      .join('&')
     const { locale } = useI18n()
-    const lang = locales[locale.value]
     const frame = document.createElement('iframe')
     frame.setAttribute('class', 'umo-diagrams-iframe')
-    frame.setAttribute('src', `${this.domain}?${params}&lang=${lang}`)
+    frame.setAttribute(
+      'src',
+      buildDiagramFrameSrc({
+        domain: this.domain,
+        params: this.params,
+        locale: locale.value,
+      }),
+    )
     return frame
   }
 
@@ -141,7 +142,7 @@ class DiagramEditor {
 
   // 设置编辑器
   configureEditor() {
-    this.postMessage({ action: 'configure', config: this.params.configure })
+    this.postMessage({ action: 'configure', config: this.config })
   }
 
   // 导出数据
