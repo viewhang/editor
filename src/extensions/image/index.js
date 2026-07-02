@@ -3,7 +3,11 @@ import Image from '@tiptap/extension-image'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 
 import NodeView from './node-view.vue'
-import { parseImageSource, sanitizeImageHTMLAttributes } from './file-state'
+import {
+  parseImageBooleanAttribute,
+  parseImageSource,
+  sanitizeImageHTMLAttributes,
+} from './file-state'
 
 const parseDimension = (element, name) => {
   const styleValue = element.style?.[name]
@@ -34,6 +38,7 @@ const customImage = Image.extend({
     return {
       vnode: {
         default: true,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'vnode', true),
       },
       type: {
         default: 'image',
@@ -76,30 +81,38 @@ const customImage = Image.extend({
       },
       draggable: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'draggable', false),
       },
       rotatable: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'rotatable', false),
       },
       equalProportion: {
         default: true,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'equalProportion', true),
       },
       flipX: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'flipX', false),
       },
       flipY: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'flipY', false),
       },
       uploaded: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'uploaded', false),
       },
       error: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'error', false),
       },
       previewType: {
         default: 'image',
       },
       inline: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'inline', false),
       },
     }
   },
@@ -175,9 +188,11 @@ export const InlineImage = customImage.extend({
       ...this.parent?.(),
       inline: {
         default: true,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'inline', true),
       },
       equalProportion: {
         default: false,
+        parseHTML: (element) => parseImageBooleanAttribute(element, 'equalProportion', false),
       },
       width: {
         default: 150,

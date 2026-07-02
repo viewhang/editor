@@ -6,6 +6,7 @@ import {
   canUseRawImageSource,
   getRenderableImageSource,
   normalizeImageSource,
+  parseImageBooleanAttribute,
   parseImageSource,
   sanitizeImageHTMLAttributes,
   shouldResolveImageSource,
@@ -138,6 +139,23 @@ test('parses persisted null image src values as empty runtime src', () => {
   assert.equal(parseImageSource('undefined'), null)
   assert.equal(parseImageSource(''), null)
   assert.equal(parseImageSource('/files/download/42'), '/files/download/42')
+})
+
+test('parses persisted image boolean attributes instead of keeping string truthiness', () => {
+  const element = {
+    getAttribute: (name) => ({
+      error: 'false',
+      draggable: 'false',
+      uploaded: 'true',
+      equalProportion: 'true',
+    })[name] ?? null,
+  }
+
+  assert.equal(parseImageBooleanAttribute(element, 'error', false), false)
+  assert.equal(parseImageBooleanAttribute(element, 'draggable', false), false)
+  assert.equal(parseImageBooleanAttribute(element, 'uploaded', false), true)
+  assert.equal(parseImageBooleanAttribute(element, 'equalProportion', true), true)
+  assert.equal(parseImageBooleanAttribute(element, 'missing', true), true)
 })
 
 test('treats persisted null image src values as unavailable at runtime', () => {

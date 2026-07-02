@@ -71,6 +71,27 @@ export const parseImageSource = (src) => {
   return normalizeImageSource(src)
 }
 
+export const parseImageBooleanAttribute = (element, name, fallback = false) => {
+  const rawValue = element?.getAttribute?.(name)
+  if (rawValue == null) {
+    return fallback
+  }
+
+  if (typeof rawValue === 'boolean') {
+    return rawValue
+  }
+
+  const value = String(rawValue).trim().toLowerCase()
+  if (['false', '0', 'no', 'null', 'undefined'].includes(value)) {
+    return false
+  }
+  if (['', 'true', '1', 'yes'].includes(value)) {
+    return true
+  }
+
+  return fallback
+}
+
 export const sanitizeImageHTMLAttributes = (attrs = {}) => {
   const sanitized = { ...attrs }
 
