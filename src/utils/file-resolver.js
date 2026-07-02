@@ -66,7 +66,10 @@ export const createFileResolver = ({ options }) => {
     }
 
     const result = await options.value?.onFileLoad?.(payload)
-    const resolved = normalizeResolvedFile(result, fallbackUrl)
+    const resolved = normalizeResolvedFile(
+      result,
+      runtime.allowFallback === false ? null : fallbackUrl,
+    )
     cache.set(key, resolved)
     return resolved
   }

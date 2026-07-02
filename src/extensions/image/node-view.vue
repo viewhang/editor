@@ -13,14 +13,14 @@
     <div
       class="umo-node-container umo-node-image"
       :class="{
-        'is-loading': attrs.src && isLoading,
-        'is-error': attrs.src && error,
+        'is-loading': imageSrc && isLoading,
+        'is-error': imageSrc && error,
         'umo-hover-shadow': !options.document?.readOnly,
         'umo-select-outline': !attrs.draggable,
       }"
     >
       <div
-        v-if="attrs.src && isLoading"
+        v-if="imageSrc && isLoading"
         class="loading"
         :style="{ height: `${attrs.height}px` }"
       >
@@ -28,7 +28,7 @@
         {{ t('node.image.loading') }}
       </div>
       <div
-        v-else-if="attrs.src && error"
+        v-else-if="imageSrc && error"
         class="error"
         :style="{ height: `${attrs.height}px` }"
       >
@@ -97,6 +97,11 @@ import { shortId } from '@/utils/short-id'
 import { dataURLToFile } from '@/utils/file'
 
 import { updateAttributesWithoutHistory } from '../file'
+import {
+  buildUploadedImageAttrs,
+  canUseRawImageSource,
+  shouldResolveImageSource,
+} from './file-state'
 
 const container = inject('container')
 const editor = inject('editor')
@@ -108,7 +113,9 @@ const attrs = $computed(() => props.node.attrs)
 const { updateAttributes, getPos } = props
 const options = inject('options')
 let resolvedSrc = $ref(null)
-const imageSrc = $computed(() => resolvedSrc || attrs.src)
+const imageSrc = $computed(() => {
+  return resolvedSrc || (canUseRawImageSource(attrs) ? attrs.src : null)
+})
 const { isLoading, error } = useImage({ src: imageSrc })
 
 const containerRef = ref(null)
@@ -132,18 +139,23 @@ const nodeStyle = $computed(() => {
 })
 
 const uploadImage = async () => {
-  if (attrs.uploaded || !attrs.id || !uploadFileMap.value.has(attrs.id)) {
+  if (attrs.uploaded) {
+    return
+  }
+  if (!attrs.id || !uploadFileMap.value.has(attrs.id)) {
+    // 旧内容可能没有进入上传队列。标记为已上传后，下一轮 watcher 会按 id/src 解析展示地址。
     updateAttributesWithoutHistory(editor.value, { uploaded: true }, getPos())
     return
   }
   try {
     const file = uploadFileMap.value.get(attrs.id)
     const result = await options.value?.onFileUpload?.(file)
-    const { id, url } = result
+    const uploadedAttrs = buildUploadedImageAttrs(result)
+    resolvedSrc = result?.url || resolvedSrc
     if (containerRef.value) {
       updateAttributesWithoutHistory(
         editor.value,
-        { id, src: url, uploaded: true },
+        uploadedAttrs,
         getPos(),
       )
     }
@@ -158,7 +170,7 @@ const uploadImage = async () => {
 
 // 运行时解析图片访问地址，避免把短期 token 固化到文档内容里。
 const resolveImageSource = async (force = false) => {
-  if (!attrs.src || attrs.uploaded === false) {
+  if (!shouldResolveImageSource(attrs)) {
     resolvedSrc = attrs.src
     return
   }
@@ -168,11 +180,16 @@ const resolveImageSource = async (force = false) => {
         ...attrs,
         nodeType: attrs.inline ? 'inlineImage' : 'image',
       },
-      { force, reason: 'display' },
+      {
+        force,
+        reason: 'display',
+        // 已有文件 id 的图片必须走 onFileLoad，不能再静默退回文档里的旧 src。
+        allowFallback: canUseRawImageSource(attrs),
+      },
     )
-    resolvedSrc = result.url || attrs.src
+    resolvedSrc = result.url || (canUseRawImageSource(attrs) ? attrs.src : null)
   } catch (error) {
-    resolvedSrc = attrs.src
+    resolvedSrc = canUseRawImageSource(attrs) ? attrs.src : null
     useMessage('error', {
       attach: container,
       content: error.message,
@@ -286,15 +303,16 @@ watch(
   },
 )
 watch(
-  () => attrs.src,
-  async (src) => {
-    resolvedSrc = src
+  () => [attrs.src, attrs.uploaded],
+  async ([src]) => {
     if (attrs.uploaded === false && !error.value) {
+      resolvedSrc = src
       if (src?.startsWith('data:image')) {
         const id = attrs.id || shortId(10)
         const name = `${attrs.type}-${id}`
         const { file, filename } = dataURLToFile(src, name)
         updateAttributes({
+          id,
           size: file.size,
           name: filename,
           uploaded: false,
@@ -305,6 +323,7 @@ watch(
       uploadImage()
       return
     }
+
     await resolveImageSource()
   },
   { immediate: true },
