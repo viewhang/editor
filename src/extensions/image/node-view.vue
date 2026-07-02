@@ -117,7 +117,13 @@ const options = inject('options')
 let resolvedSrc = $ref(null)
 const imageSrcRef = computed(() => getRenderableImageSource(attrs, resolvedSrc))
 const imageSrc = $computed(() => imageSrcRef.value)
-const { isLoading, error } = useImage({ src: imageSrcRef })
+const { isLoading, error } = useImage(
+  { src: imageSrcRef },
+  {
+    // VueUse 默认会把图片加载失败上报到 reportError，页面会出现 Uncaught Event。
+    onError: () => {},
+  },
+)
 let isResolvingSource = $ref(shouldResolveImageSource(attrs))
 const imageLoading = $computed(() => isResolvingSource || (imageSrc && isLoading))
 const imageError = $computed(() =>
