@@ -1,5 +1,6 @@
-import { mergeAttributes, nodeInputRule, nodePasteRule } from '@tiptap/core'
+import { mergeAttributes } from '@tiptap/core'
 import Image from '@tiptap/extension-image'
+import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 
 import NodeView from './node-view.vue'
@@ -9,179 +10,498 @@ import {
   sanitizeImageHTMLAttributes,
 } from './file-state'
 
-const parseDimension = (element, name) => {
-  const styleValue = element.style?.[name]
-  const attrValue = element.getAttribute(name)
-  const rawValue = styleValue || attrValue
+const IMAGE_NODE_NAMES = ['image', 'inlineImage']
+const DIMENSION_REGEX = /^(\d*\.?\d+)(px|pt|pc|in|cm|mm)?$/i
+const PIXELS_PER_UNIT = {
+  px: 1,
+  pt: 96 / 72,
+  pc: 16,
+  in: 96,
+  cm: 96 / 2.54,
+  mm: 96 / 25.4,
+}
+const IMAGE_PARSE_CACHE = new WeakMap()
 
+const createInitialImageAttrs = (attrs = {}) => {
+  if (attrs.initialAttrs) {
+    return attrs
+  }
+  const snapshot = { ...attrs }
+  delete snapshot.initialAttrs
+  return {
+    ...attrs,
+    initialAttrs: JSON.stringify(snapshot),
+  }
+}
+
+const parseInitialImageAttrs = (value) => {
+  if (!value) {
+    return null
+  }
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+const parseDimensionValue = (rawValue) => {
   if (!rawValue) {
     return null
   }
+  const match = String(rawValue).trim().match(DIMENSION_REGEX)
+  if (!match) {
+    return null
+  }
+  const unit = (match[2] || 'px').toLowerCase()
+  return Number(
+    (Number.parseFloat(match[1]) * PIXELS_PER_UNIT[unit]).toFixed(2),
+  )
+}
 
-  const normalizedValue = String(rawValue).trim()
+// 读取并缓存图片元素的地址、文本和尺寸
+const getParsedImageElement = (element) => {
+  if (!(element instanceof HTMLElement)) {
+    return {
+      sourceElement: null,
+      attrs: {},
+      dimensions: {},
+    }
+  }
+  const cached = IMAGE_PARSE_CACHE.get(element)
+  if (cached) {
+    return cached
+  }
+  // 旧版本导出的 inline-img 把属性写在自身，且没有嵌套的 img
+  const sourceElement =
+    element.tagName.toLowerCase() === 'img'
+      ? element
+      : element.querySelector('img') ||
+        (element.tagName.toLowerCase() === 'inline-img' ? element : null)
+  const parsed = {
+    sourceElement,
+    attrs: {
+      src: parseImageSource(sourceElement?.getAttribute('src')),
+      alt: sourceElement?.getAttribute('alt') ?? null,
+      title: sourceElement?.getAttribute('title') ?? null,
+    },
+    dimensions: {
+      width:
+        parseDimensionValue(sourceElement?.style?.width) ??
+        parseDimensionValue(sourceElement?.getAttribute('width')),
+      height:
+        parseDimensionValue(sourceElement?.style?.height) ??
+        parseDimensionValue(sourceElement?.getAttribute('height')),
+    },
+  }
+  IMAGE_PARSE_CACHE.set(element, parsed)
+  if (sourceElement && sourceElement !== element) {
+    IMAGE_PARSE_CACHE.set(sourceElement, parsed)
+  }
+  return parsed
+}
 
-  if (/^\d+(\.\d+)?px$/i.test(normalizedValue)) {
-    return Number.parseFloat(normalizedValue)
+const getImageAttribute = (element, name) =>
+  getParsedImageElement(element).attrs[name] ?? null
+
+const parseDimension = (element, name) =>
+  getParsedImageElement(element).dimensions[name] ?? null
+
+const hasImageSource = (element) =>
+  String(getImageAttribute(element, 'src') || '').trim() !== ''
+
+const isProseMirrorClipboardArtifact = (element) =>
+  element instanceof HTMLElement &&
+  (element.classList.contains('ProseMirror-separator') ||
+    element.classList.contains('ProseMirror-trailingBreak'))
+
+const shouldParseImageElement = (element) =>
+  !isProseMirrorClipboardArtifact(element) && hasImageSource(element)
+
+const shouldParseImageFigure = (element) =>
+  element instanceof HTMLElement && shouldParseImageElement(element)
+
+const INLINE_IMAGE_PARENT_SELECTOR = 'p, h1, h2, h3, h4, h5, h6, li'
+
+const getInlineImageParent = (element) =>
+  element.closest('figure, inline-img')
+    ? null
+    : element.closest(INLINE_IMAGE_PARENT_SELECTOR)
+
+// 与文字同段的图片必须保持行内，否则解析时段落会被拆开
+const isImageAmongText = (element) => {
+  const parent = getInlineImageParent(element)
+  return (
+    !!parent &&
+    (parent.textContent.trim() !== '' ||
+      parent.querySelectorAll('img').length > 1)
+  )
+}
+
+const wrapImageElementAsFigure = (element) => {
+  const doc = element?.ownerDocument
+  if (!doc || !(element instanceof HTMLElement)) {
+    return
+  }
+  if (!shouldParseImageElement(element)) {
+    return
+  }
+  if (element.closest('figure[data-type="image"], inline-img')) {
+    return
+  }
+  if (isImageAmongText(element)) {
+    return
+  }
+  const figure = doc.createElement('figure')
+  figure.setAttribute('data-type', 'image')
+  figure.appendChild(element.cloneNode(true))
+  figure.appendChild(doc.createElement('figcaption'))
+  // 独占段落的图片直接替换段落，避免前后多出空段落
+  ;(getInlineImageParent(element) || element).replaceWith(figure)
+}
+
+export const normalizeDocumentImages = (doc) => {
+  doc
+    .querySelectorAll('.ProseMirror-separator, br.ProseMirror-trailingBreak')
+    .forEach((element) => element.remove())
+  doc.querySelectorAll('img').forEach(wrapImageElementAsFigure)
+}
+
+const normalizePastedHtmlImages = (html) => {
+  if (!html || typeof DOMParser === 'undefined') {
+    return html
+  }
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(html, 'text/html')
+  normalizeDocumentImages(doc)
+  return doc.body?.innerHTML || html
+}
+
+// 创建图片节点属性并解析持久化的布尔值和图片地址
+const createImageAttributes = () => ({
+  vnode: {
+    default: true,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'vnode', true),
+  },
+  type: { default: 'image' },
+  name: { default: null },
+  size: { default: null },
+  id: { default: null },
+  src: {
+    default: null,
+    parseHTML: (element) => getImageAttribute(element, 'src'),
+  },
+  config: { default: null },
+  content: { default: null },
+  alt: {
+    default: null,
+    parseHTML: (element) => getImageAttribute(element, 'alt'),
+  },
+  title: {
+    default: null,
+    parseHTML: (element) => getImageAttribute(element, 'title'),
+  },
+  width: {
+    default: null,
+    parseHTML: (element) => parseDimension(element, 'width'),
+  },
+  height: {
+    default: null,
+    parseHTML: (element) => parseDimension(element, 'height'),
+  },
+  left: { default: 0 },
+  top: { default: 0 },
+  angle: { default: null },
+  draggable: {
+    default: false,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'draggable', false),
+  },
+  rotatable: {
+    default: false,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'rotatable', false),
+  },
+  equalProportion: {
+    default: true,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'equalProportion', true),
+  },
+  flipX: {
+    default: false,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'flipX', false),
+  },
+  flipY: {
+    default: false,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'flipY', false),
+  },
+  uploaded: {
+    default: false,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'uploaded', false),
+  },
+  error: {
+    default: false,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'error', false),
+  },
+  previewType: { default: 'image' },
+  showTitle: { default: false },
+  inline: {
+    default: false,
+    parseHTML: (element) => parseImageBooleanAttribute(element, 'inline', false),
+  },
+  initialAttrs: {
+    default: null,
+    renderHTML: () => ({}),
+  },
+  cropData: {
+    default: null,
+    renderHTML: () => ({}),
+  },
+})
+
+const createInitialImageContent = (attrs, inline) => {
+  if (inline) {
+    return undefined
+  }
+  const text = [attrs.alt, attrs.title, attrs.name].find((value) =>
+    String(value || '').trim(),
+  )
+  if (!text) {
+    return undefined
+  }
+  return [{ type: 'text', text }]
+}
+
+const createInsertImageCommand =
+  (typeName, inline) =>
+  (options, replace = false) =>
+  ({ commands, editor }) => {
+    const attrs = createInitialImageAttrs({ ...options, inline })
+    const initialContent = createInitialImageContent(attrs, inline)
+    const content = {
+      type: typeName,
+      attrs,
+      ...(initialContent ? { content: initialContent } : {}),
+    }
+    if (replace) {
+      return commands.insertContent(content)
+    }
+    return commands.insertContentAt(editor.state.selection.anchor, content)
   }
 
-  if (/^\d+(\.\d+)?$/.test(normalizedValue)) {
-    return Number.parseFloat(normalizedValue)
-  }
+const isMatchedImageType = (currentType, typeName) =>
+  Array.isArray(typeName)
+    ? typeName.includes(currentType)
+    : currentType === typeName
 
+const getSelectedImagePosition = (selection, typeName) => {
+  if (isMatchedImageType(selection?.node?.type?.name, typeName)) {
+    return selection.from
+  }
+  const currentNode = getSelectedAncestorNode(selection?.$from, typeName)
+  return currentNode?.pos ?? null
+}
+
+const getSelectedAncestorNode = ($pos, typeName) => {
+  if (!$pos) {
+    return null
+  }
+  const { depth: maxDepth } = $pos
+  for (let depth = maxDepth; depth > 0; depth -= 1) {
+    const node = $pos.node(depth)
+    if (isMatchedImageType(node?.type?.name, typeName)) {
+      return {
+        node,
+        pos: $pos.before(depth),
+      }
+    }
+  }
   return null
 }
 
-const customImage = Image.extend({
+const getSelectedImageNode = (selection) => {
+  if (isMatchedImageType(selection?.node?.type?.name, IMAGE_NODE_NAMES)) {
+    return {
+      node: selection.node,
+      pos: selection.from,
+    }
+  }
+  return getSelectedAncestorNode(selection?.$from, IMAGE_NODE_NAMES)
+}
+
+const getResetImageAttrs = (node) => {
+  const initialAttrs = parseInitialImageAttrs(node?.attrs?.initialAttrs)
+  if (!initialAttrs) {
+    return null
+  }
+  return {
+    ...initialAttrs,
+    initialAttrs: node.attrs.initialAttrs,
+  }
+}
+
+const BaseImage = Image.extend({
   atom: true,
   selectable: true,
-  addAttributes() {
+  addStorage() {
     return {
-      vnode: {
-        default: true,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'vnode', true),
+      cropper: {
+        activePos: null,
       },
-      type: {
-        default: 'image',
+    }
+  },
+  addAttributes() {
+    return createImageAttributes()
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'img',
+        getAttrs: (element) =>
+          shouldParseImageElement(element) ? null : false,
       },
-      name: {
-        default: null,
-      },
-      size: {
-        default: null,
-      },
-      id: {
-        default: null,
-      },
-      src: {
-        default: null,
-        parseHTML: (element) => parseImageSource(element.getAttribute('src')),
-      },
-      config: {
-        default: null,
-      },
-      content: {
-        default: null,
-      },
-      width: {
-        default: null,
-        parseHTML: (element) => parseDimension(element, 'width'),
-      },
-      height: {
-        default: null,
-        parseHTML: (element) => parseDimension(element, 'height'),
-      },
-      left: {
-        default: 0,
-      },
-      top: {
-        default: 0,
-      },
-      angle: {
-        default: null,
-      },
-      draggable: {
-        default: false,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'draggable', false),
-      },
-      rotatable: {
-        default: false,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'rotatable', false),
-      },
-      equalProportion: {
-        default: true,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'equalProportion', true),
-      },
-      flipX: {
-        default: false,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'flipX', false),
-      },
-      flipY: {
-        default: false,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'flipY', false),
-      },
-      uploaded: {
-        default: false,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'uploaded', false),
-      },
-      error: {
-        default: false,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'error', false),
-      },
-      previewType: {
-        default: 'image',
-      },
-      inline: {
-        default: false,
-        parseHTML: (element) => parseImageBooleanAttribute(element, 'inline', false),
+    ]
+  },
+  addCommands() {
+    return {
+      resetImageToInitial:
+        () =>
+        ({ state, dispatch }) => {
+          const currentImage = getSelectedImageNode(state.selection)
+          if (!currentImage) {
+            return false
+          }
+          const nextAttrs = getResetImageAttrs(currentImage.node)
+          if (!nextAttrs) {
+            return false
+          }
+          if (dispatch) {
+            const nextNode = currentImage.node.type.create(
+              nextAttrs,
+              currentImage.node.content,
+              currentImage.node.marks,
+            )
+            const tr = state.tr.replaceWith(
+              currentImage.pos,
+              currentImage.pos + currentImage.node.nodeSize,
+              nextNode,
+            )
+            tr.setSelection(NodeSelection.create(tr.doc, currentImage.pos))
+            dispatch(tr)
+          }
+          return true
+        },
+    }
+  },
+})
+
+export const BlockImage = BaseImage.extend({
+  atom: false,
+  content: 'inline*',
+  defining: true,
+  isolating: true,
+  addKeyboardShortcuts() {
+    return {
+      Backspace: ({ editor }) => {
+        const { selection } = editor.state
+        if (!selection.empty) {
+          return false
+        }
+        const currentImage = getSelectedAncestorNode(selection.$from, this.name)
+        if (!currentImage || currentImage.node.content.size > 0) {
+          return false
+        }
+        if (selection.from !== currentImage.pos + 1) {
+          return false
+        }
+        return editor
+          .chain()
+          .deleteRange({
+            from: currentImage.pos,
+            to: currentImage.pos + currentImage.node.nodeSize,
+          })
+          .run()
       },
     }
   },
   parseHTML() {
-    return [{ tag: 'img' }]
+    return [
+      {
+        tag: 'figure[data-type="image"]',
+        getAttrs: (element) =>
+          shouldParseImageFigure(element.querySelector('img')) ? null : false,
+        contentElement: (element) =>
+          element.querySelector('figcaption, .umo-node-image-alt-content') ||
+          element.ownerDocument.createElement('figcaption'),
+      },
+      {
+        tag: 'img',
+        getAttrs: (element) =>
+          shouldParseImageElement(element) ? null : false,
+      },
+    ]
   },
+  // 序列化块级图片与标题并省略空图片地址
   renderHTML({ HTMLAttributes }) {
-    return ['img', mergeAttributes(sanitizeImageHTMLAttributes(HTMLAttributes))]
-  },
-  addPasteRules() {
+    const { src, alt, title, width, height, ...figureAttributes } =
+      HTMLAttributes
     return [
-      ...(this.parent?.() || []),
-      nodePasteRule({
-        find: /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)"?)?\)/g,
-        type: this.type,
-        getAttributes: (match) => {
-          const [, alt, src, title] = match
-          return { src, alt, title }
-        },
-      }),
+      'figure',
+      mergeAttributes(figureAttributes, { 'data-type': 'image' }),
+      [
+        'img',
+        sanitizeImageHTMLAttributes(
+          mergeAttributes(this.options.HTMLAttributes, {
+            src,
+            alt,
+            title,
+            width,
+            height,
+          }),
+        ),
+      ],
+      ['figcaption', 0],
     ]
   },
-  addInputRules() {
-    return [
-      ...(this.parent?.() || []),
-      nodeInputRule({
-        find: /!\[([\S]+)\]\(([^)\s]+)(?:\s+"([\S]+)"?)?\)/g,
-        type: this.type,
-        getAttributes: (match) => {
-          const [, alt, src, title] = match
-          return { src, alt, title }
-        },
-      }),
-    ]
-  },
-})
-// 节点块级别扩展
-export const BlockImage = customImage.extend({
-  ...customImage,
   addNodeView() {
     return VueNodeViewRenderer(NodeView)
   },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('image-paste-normalize'),
+        props: {
+          transformPastedHTML: (html) => normalizePastedHtmlImages(html),
+        },
+      }),
+    ]
+  },
   addCommands() {
     return {
-      setImage:
-        (options, replace) =>
-        ({ commands, editor }) => {
-          if (replace) {
-            return commands.insertContent({
-              type: this.name,
-              attrs: { ...options, inline: false },
-            })
+      ...this.parent?.(),
+      setImage: createInsertImageCommand(this.name, false),
+      toggleImageCrop:
+        () =>
+        ({ state, tr, dispatch }) => {
+          const pos = getSelectedImagePosition(state.selection, this.name)
+          if (typeof pos !== 'number') {
+            return false
           }
-          return commands.insertContentAt(editor.state.selection.anchor, {
-            type: this.name,
-            attrs: { ...options, inline: false },
-          })
+          if (dispatch) {
+            dispatch(
+              tr.setMeta('imageCrop', {
+                action: 'toggle',
+                pos,
+              }),
+            )
+          }
+          return true
         },
     }
   },
 })
-// 行内扩展
-export const InlineImage = customImage.extend({
-  ...customImage,
-  name: 'inlineImage',
-  // 行内元素
-  inline: true,
 
-  // 属于行内组
+export const InlineImage = BaseImage.extend({
+  name: 'inlineImage',
+  inline: true,
   group: 'inline',
   addAttributes() {
     return {
@@ -196,19 +516,36 @@ export const InlineImage = customImage.extend({
       },
       width: {
         default: 150,
+        parseHTML: (element) => parseDimension(element, 'width'),
       },
       height: {
         default: 80,
+        parseHTML: (element) => parseDimension(element, 'height'),
       },
     }
   },
   parseHTML() {
-    return [{ tag: 'inline-img' }]
+    return [
+      { tag: 'inline-img', getAttrs: () => ({ width: null, height: null }) },
+      {
+        tag: 'img',
+        priority: 60,
+        getAttrs: (element) =>
+          shouldParseImageElement(element) && getInlineImageParent(element)
+            ? { width: null, height: null }
+            : false,
+      },
+    ]
   },
+  // 序列化行内图片并省略空图片地址
   renderHTML({ HTMLAttributes }) {
+    const { src, alt, title, width, height, ...wrapperAttributes } =
+      HTMLAttributes
+    // inline-img 是自定义标签，嵌套 img 才能让导出的 HTML 在别处正常显示
     return [
       'inline-img',
-      mergeAttributes(sanitizeImageHTMLAttributes(HTMLAttributes)),
+      mergeAttributes(wrapperAttributes),
+      ['img', sanitizeImageHTMLAttributes({ src, alt, title, width, height })],
     ]
   },
   addNodeView() {
@@ -216,18 +553,8 @@ export const InlineImage = customImage.extend({
   },
   addCommands() {
     return {
-      setInlineImage:
-        (options) =>
-        ({ commands, editor }) => {
-          // return commands.insertContent({
-          //   type: this.name,
-          //   attrs: { ...options, inline: true },
-          // })
-          return commands.insertContentAt(editor.state.selection.anchor, {
-            type: this.name,
-            attrs: { ...options, inline: true },
-          })
-        },
+      ...this.parent?.(),
+      setInlineImage: createInsertImageCommand(this.name, true),
     }
   },
 })

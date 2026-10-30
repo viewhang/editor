@@ -73,6 +73,7 @@ import {
   isRecord,
   isString,
 } from '@tool-belt/type-predicates'
+import { AllSelection } from '@tiptap/pm/state'
 import domToImage from 'dom-to-image-more'
 import enConfig from 'tdesign-vue-next/esm/locale/en_US'
 import cnConfig from 'tdesign-vue-next/esm/locale/zh_CN'
@@ -332,7 +333,15 @@ let contentUpdated = $ref(false)
 let isFirstUpdate = $ref(true)
 let autoSaveInterval = $ref(null)
 let isSaving = $ref(false)
-const shouldBlockUnload = () => isSaving || contentUpdated
+const shouldBlockUnload = () => {
+  if (
+    options.value.document?.readOnly === true ||
+    editor.value?.isEditable === false
+  ) {
+    return false
+  }
+  return isSaving || contentUpdated
+}
 const handleBeforeUnload = (event) => {
   if (!shouldBlockUnload()) {
     return
@@ -815,7 +824,7 @@ const setContent = (
   content,
   options = {
     emitUpdate: true,
-    focusPosition: 'start',
+    focusPosition: null,
     focusOptions: { scrollIntoView: true },
   },
 ) => {
@@ -1932,7 +1941,7 @@ defineExpose({
   --td-text-color-disabled: var(--umo-text-color-disabled);
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-height: 200px;
   display: flex;
   flex-direction: column;
   color: var(--umo-text-color);
@@ -1960,8 +1969,9 @@ defineExpose({
   }
   &.preview-mode {
     &.laser-pointer {
-      .umo-main {
-        cursor: url('@/assets/images/laser-pointer.svg'), auto;
+      .umo-main,
+      .umo-main * {
+        cursor: url('@/assets/images/laser-pointer.svg'), auto !important;
       }
     }
     .umo-toolbar {

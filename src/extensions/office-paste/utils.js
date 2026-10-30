@@ -86,25 +86,12 @@ export function isOfficeHtml(html) {
   return hasMsOfficeSignature || hasWpsSignature
 }
 
-export function hasImageInPastePayload(files, html) {
-  const hasImageFile = files.some((item) => item.type?.startsWith('image/'))
-  const hasImageTag = /<(img\b|v:imagedata\b)/i.test(html || '')
-  return hasImageFile || hasImageTag
-}
-
-export function replaceImageWithPlaceholder(html, placeholder = '[图片]') {
-  if (!html) {
-    return html
-  }
-
-  let nextHtml = html
-  nextHtml = nextHtml.replace(
-    /<v:shape\b[^>]*>[\s\S]*?<v:imagedata[\s\S]*?<\/v:shape>/gi,
-    placeholder,
+// 表格类内容由 transformExcel 处理，不走 Word 文档的流程
+export function isSheetHtml(html) {
+  return (
+    /<html\b[^>]*office:excel/i.test(html.slice(0, 4096)) ||
+    html.includes('byte-sheet-html-origin')
   )
-  nextHtml = nextHtml.replace(/<v:imagedata\b[^>]*\/?>/gi, placeholder)
-  nextHtml = nextHtml.replace(/<img\b[^>]*>/gi, placeholder)
-  return nextHtml
 }
 
 export function isOfficeLikeClipboardData(clipboardData) {
@@ -114,6 +101,9 @@ export function isOfficeLikeClipboardData(clipboardData) {
   const html = clipboardData.getData('text/html') || ''
   if (isOfficeHtml(html)) {
     return true
+  }
+  if (html.trim() !== '') {
+    return false
   }
   const types = Array.from(clipboardData.types || [])
   return types.includes('text/rtf') || types.includes('application/rtf')

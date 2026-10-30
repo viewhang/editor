@@ -5,199 +5,69 @@
     huge
     @menu-click="dialogVisible = true"
   >
-    <modal
+    <dialog-signature
       v-model:visible="dialogVisible"
-      width="642px"
+      :value="value"
       @confirm="setSignature"
-      @close="dialogVisible = false"
-    >
-      <template #header>
-        <icon name="signature" />
-        {{ t('tools.signature.title') }}
-      </template>
-      <div class="umo-signature-toolbar">
-        <menus-button
-          ico="undo"
-          :text="t('base.undo')"
-          hide-text
-          @menu-click="signature?.undo()"
-        />
-        <menus-button
-          ico="clear-format"
-          :text="t('tools.signature.clear')"
-          hide-text
-          @menu-click="signature?.clear()"
-        />
-        <t-divider layout="vertical" />
-        <menus-button
-          :text="t('tools.signature.lineWidth')"
-          menu-type="dropdown"
-          hide-text
-          :select-options="lineWidthOptions"
-          @click="changeLineWidth"
-        >
-          <icon name="highlight" />
-        </menus-button>
-        <menus-toolbar-base-color
-          :text="t('tools.signature.lineColor')"
-          modeless
-          :default-color="options.color"
-          @change="changeLineColor"
-        />
-        <menus-button
-          :text="t('tools.signature.smooth')"
-          :menu-active="openSmooth"
-          hide-text
-          @menu-click="changeSmooth"
-        >
-          <icon name="highlight" />
-        </menus-button>
-        <t-divider layout="vertical" />
-        <menus-button
-          ico="image-reset"
-          :text="t('tools.signature.reset')"
-          hide-text
-          @menu-click="reuseOptions"
-        />
-      </div>
-      <div class="umo-signature-container" :data-tip="t('tools.signature.tip')">
-        <canvas ref="signatureRef" />
-      </div>
-    </modal>
+    />
   </menus-button>
 </template>
 
 <script setup>
-import SmoothSignature from 'smooth-signature'
-
 import { shortId } from '@/utils/short-id'
 
+const props = defineProps({
+  replace: {
+    type: Boolean,
+    default: false,
+  },
+  value: {
+    type: Object,
+    default: null,
+  },
+})
+
+const uploadFileMap = inject('uploadFileMap')
 const editor = inject('editor')
-const container = inject('container')
+const { t } = useI18n()
 
 let dialogVisible = $ref(false)
-let openSmooth = $ref(false)
 
-const lineWidthOptions = $ref([
-  { content: '2', value: 2 },
-  { content: '3', value: 3 },
-  { content: '4', value: 4 },
-  { content: '5', value: 5 },
-  { content: '6', value: 6 },
-  { content: '7', value: 7 },
-  { content: '8', value: 8 },
-])
-const options = $ref({
-  width: 600,
-  height: 200,
-  minWidth: 4,
-  maxWidth: 4,
-  color: '#000',
-  openSmooth,
-  scale: 2,
-})
-let signature = $ref(null)
-const signatureRef = $ref(null)
-
-const reuseOptions = () => {
-  signature.width = 600
-  signature.height = 200
-  signature.minWidth = 4
-  signature.maxWidth = 4
-  signature.color = '#000'
-  signature.openSmooth = false
-  openSmooth = false
-}
-
-const changeLineColor = (color) => {
-  signature.color = color
-}
-const changeLineWidth = ({ value }) => {
-  signature.minWidth = value
-  signature.maxWidth = value
-}
-const changeSmooth = () => {
-  openSmooth = !openSmooth
-  signature.openSmooth = openSmooth
-  signature.maxWidth = openSmooth ? signature.minWidth * 2 : signature.minWidth
-}
-
-const setSignature = async () => {
-  try {
-    const image = signature.getPNG()
-    editor.value
-      ?.chain()
-      .focus()
-      .setImage({
-        id: shortId(10),
+const setSignature = (imageValue) => {
+  if (!imageValue?.url && !(imageValue?.file instanceof File)) {
+    return
+  }
+  const id = props.replace ? props.value?.id || shortId(10) : shortId(10)
+  const src =
+    imageValue?.url ||
+    (imageValue?.file instanceof File
+      ? URL.createObjectURL(imageValue.file)
+      : '')
+  if (imageValue?.file instanceof File) {
+    uploadFileMap.value.set(id, imageValue.file)
+  }
+  editor.value
+    ?.chain()
+    .focus()
+    .setImage(
+      {
+        id,
         type: 'signature',
-        src: image,
+        src,
+        alt: t('tools.signature.text'),
+        name:
+          imageValue?.file?.name ||
+          imageValue?.name ||
+          t('tools.signature.text'),
+        size: imageValue?.file?.size || imageValue?.size || null,
         width: 120,
-        height: 40,
         draggable: true,
         nodeAlign: 'left',
         previewType: null,
-      })
-      .run()
-    dialogVisible = false
-  } catch {
-    useMessage('error', {
-      attach: container,
-      content: t('tools.signature.notEmpty'),
-    })
-  }
+        uploaded: !(imageValue?.file instanceof File),
+      },
+      props.replace,
+    )
+    .run()
 }
-
-watch(
-  () => dialogVisible,
-  async (val) => {
-    if (val) {
-      if (!signature) {
-        await nextTick()
-        signature = new SmoothSignature(signatureRef, options)
-      }
-    } else {
-      if (signature) {
-        signature.clear()
-      }
-      signature = null
-    }
-  },
-  { immediate: true },
-)
 </script>
-
-<style lang="less" scoped>
-.umo-signature-toolbar {
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-}
-.umo-signature-container {
-  border: solid 1px var(--umo-primary-color);
-  box-sizing: border-box;
-  border-radius: var(--umo-radius);
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  &::before {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    display: flex;
-    content: attr(data-tip);
-    align-items: center;
-    justify-content: center;
-    z-index: 1;
-    color: var(--umo-text-color-light);
-    opacity: 0.5;
-    pointer-events: none;
-  }
-  canvas {
-    width: 600px;
-    height: 200px;
-  }
-}
-</style>

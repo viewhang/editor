@@ -82,6 +82,7 @@
       v-model:index="currentImageIndex"
       :images="previewImages"
       :trigger="() => {}"
+      :image-scale="{ max: 10, min: 0.1, step: 0.2 }"
       @close="imageViewer.visible = false"
     />
     <container-search-replace />
@@ -237,11 +238,14 @@ watch(
       return
     }
     await nextTick()
+    previewImages = []
+    currentImageIndex = 0
     const images = document.querySelectorAll(
       `${container} .umo-page-node-content img[src][data-preview]`,
     )
     Array.from(images).forEach((image, index) => {
-      const src = image.getAttribute('src')
+      const src =
+        image.getAttribute('data-preview-src') || image.getAttribute('src')
       const nodeId = image.getAttribute('data-id')
       previewImages.push(src)
       if (nodeId === imageViewer.value.current) {

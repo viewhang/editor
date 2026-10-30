@@ -4,7 +4,7 @@
     ref="containerRef"
     class="umo-node-view"
     :style="nodeStyle"
-    @click.capture="editor?.commands.setNodeSelection(getPos())"
+    @click.capture="clickCapture"
   >
     <div
       class="umo-node-container umo-hover-shadow umo-select-outline umo-node-audio"
@@ -25,6 +25,8 @@
 <script setup>
 import { nodeViewProps, NodeViewWrapper } from '@tiptap/vue-3'
 
+import { safeNodePos, selectNodePos } from '@/utils/position'
+import { audioNodeTypes, scheduleFileDelete, srcAttrs } from '@/utils/file'
 import { player } from '@/utils/player'
 
 import { updateAttributesWithoutHistory } from '../file'
@@ -44,6 +46,10 @@ let playerInstance = $ref(null)
 let playerShow = $ref(false)
 let selected = $ref(false)
 let resolvedSrc = $ref(null)
+
+const clickCapture = () => {
+  selectNodePos(editor.value, getPos)
+}
 
 const nodeStyle = $computed(() => {
   const { nodeAlign, margin } = attrs
@@ -84,10 +90,11 @@ onMounted(async () => {
       const result = await options.value?.onFileUpload?.(file)
       const { id, url } = result
       if (containerRef.value) {
+        const pos = safeNodePos(getPos, editor.value?.state)
         updateAttributesWithoutHistory(
           editor.value,
           { id, src: url, uploaded: true },
-          getPos(),
+          pos,
         )
       }
       uploadFileMap.value.delete(attrs.id)
@@ -108,11 +115,20 @@ watch(
 
 onBeforeUnmount(() => {
   playerInstance?.destroy?.()
-  setTimeout(() => {
-    if (editor.value.isDestroyed) return
-    fileResolver.clear({ ...attrs, nodeType: 'audio' })
-    options.value.onFileDelete(attrs.id, attrs.src, `audio:${attrs.type}`)
-  }, 500)
+  fileResolver.clear({ ...attrs, nodeType: 'audio' })
+  scheduleFileDelete({
+    editor,
+    options,
+    deleteTypePrefix: 'audio',
+    fileNode: {
+      id: attrs.id,
+      src: attrs.src,
+      type: attrs.type,
+      position: safeNodePos(getPos, editor.value?.state),
+    },
+    nodeTypes: audioNodeTypes,
+    matchSourceAttrs: srcAttrs,
+  })
 })
 
 onClickOutside(containerRef, () => {

@@ -202,12 +202,15 @@
     "template": "模板",
     "textBox": "文本框",
     "toc": "页面大纲",
+    "newline": "插入新行",
     "video": "视频",
     "web": {
       "text": "网页",
       "insert": "插入",
       "title": "插入网页",
       "tip": "某些网页可能不支持嵌入。",
+      "invalidUrl": "请输入有效的网页地址，或确认当前平台链接格式正确。",
+      "insertError": "插入网页失败，请重试。",
       "type": "链接类型：",
       "url": "网页地址：",
       "placeholder": "请输入网页地址，以 http:// 或 https:// 开头"
@@ -409,15 +412,51 @@
       "notEmpty": "二维码内容不能为空"
     },
     "signature": {
-      "text": "电子签名",
-      "title": "插入电子签名",
+      "text": "签名",
+      "title": "插入签名",
+      "tabs": {
+        "online": "在线签名",
+        "select": "选择签名"
+      },
       "clear": "清空画布",
       "lineWidth": "画笔粗细",
       "lineColor": "画笔颜色",
       "smooth": "显示笔锋",
       "reset": "重置设置",
       "tip": "请在当前区域签名",
-      "notEmpty": "没有检测到您的签名"
+      "notEmpty": "没有检测到您的签名",
+      "selectLocal": "上传签名图片",
+      "reselect": "重新选择",
+      "selectEmpty": "请选择签名图片",
+      "cropTitle": "裁剪签名",
+      "cropTip": "拖拽边框和裁剪区域调整范围",
+      "fileSize": "文件大小",
+      "imageSize": "图片尺寸",
+      "unknownDimensions": "尺寸未知",
+      "cropFailed": "签名图片裁剪失败"
+    },
+    "stamp": {
+      "text": "印章",
+      "title": "插入印章",
+      "presetTitle": "公章尺寸预设",
+      "presets": {
+        "company": "企业公章",
+        "contract": "合同专用章",
+        "finance": "财务专用章",
+        "invoice": "发票专用章",
+        "legal": "法人章",
+        "customs": "报关专用章",
+        "other": "其他"
+      },
+      "previewTitle": "预览印章",
+      "previewTip": "拖拽边框和裁剪区域调整范围",
+      "selectLocal": "上传印章图片",
+      "reselect": "重新选择",
+      "selectEmpty": "请选择印章图片",
+      "fileSize": "文件大小",
+      "imageSize": "图片尺寸",
+      "unknownDimensions": "尺寸未知",
+      "notEmpty": "请先上传印章图片"
     }
   },
   "page": {
@@ -511,6 +550,13 @@
       "text": "有序列表",
       "property": "列表属性",
       "startAt": "起始编号:",
+      "continuePrevious": "继续编号",
+      "startNew": "重新编号",
+      "changeStart": "修改编号值",
+      "numberType": "编号类型",
+      "startValue": "编号值",
+      "apply": "应用",
+      "cancel": "取消",
       "decimal": "数字",
       "decimalLeadingZero": "以 0 的开头的数字",
       "lowerRoman": "小写罗马数字",
@@ -563,13 +609,18 @@
       "download": "下载文件"
     },
     "image": {
+      "crop": "裁剪图片",
+      "applyCrop": "应用裁剪",
+      "cropFailed": "图片裁剪失败",
       "open": "新窗口打开",
       "draggable": "图片浮动",
       "flipX": "水平翻转",
       "flipY": "垂直翻转",
       "preview": "预览图片",
       "proportion": "锁定图片缩放比例",
+      "title": "显示图片描述",
       "reset": "重置图片位置",
+      "resetAll": "重置所有设置",
       "rotateCC": "逆时针旋转90度",
       "rotateC": "顺时针旋转90度",
       "convertToNode": "转为块图片",
@@ -741,7 +792,8 @@
     },
     "image": {
       "loading": "正在加载图片...",
-      "error": "图片加载错误"
+      "error": "图片加载错误",
+      "altPlaceholder": "输入图片描述"
     },
     "textBox": {
       "tip": "双击进行编辑"
@@ -763,7 +815,8 @@
     "placeholder": "请输入内容"
   },
   "mention": {
-    "noResult": "无结果"
+    "loading": "正在查询",
+    "noResult": "没有找到匹配结果"
   },
   "save": {
     "text": "保存文档",
@@ -848,6 +901,8 @@
   },
   "officePaste": {
     "imagePlaceholder": "[图片]",
+    "processing": "正在处理粘贴内容…",
+    "failed": "粘贴内容处理失败",
     "dialog": {
       "title": "提示信息",
       "body": "剪贴板内容已粘贴，但包含的图片未被正确处理，请手动复制替换文档中未处理的图片。"

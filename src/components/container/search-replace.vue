@@ -7,7 +7,9 @@
     width="360px"
     mode="modeless"
     draggable
+    @opened="autofocus = true"
     @close="searchReplace = false"
+    @closed="autofocus = false"
   >
     <template #header>
       <icon name="search-replace" />
@@ -18,8 +20,8 @@
         <t-input
           v-model="searchText"
           :placeholder="t('search.searchText')"
+          :autofocus="autofocus"
           clearable
-          autofocus
           @enter="next"
         >
           <template #suffix>
@@ -95,6 +97,7 @@ import { getSelectionText } from '@/utils/selection'
 const editor = inject('editor')
 const searchReplace = inject('searchReplace')
 
+let autofocus = $ref(false)
 let searchText = $ref('')
 let replaceText = $ref('')
 const caseSensitive = $ref(false)
@@ -228,16 +231,18 @@ watch(
 <style lang="less">
 .umo-search-replace-dialog {
   .t-dialog {
-    position: absolute;
+    position: absolute !important;
     right: 15px;
-    top: 131px;
+    top: 131px !important;
+    left: unset;
+    bottom: unset;
     user-select: none;
   }
 }
 .umo-editor-container.toolbar-classic {
   .umo-search-replace-dialog {
     .t-dialog {
-      top: 65px;
+      top: 65px !important;
     }
   }
 }

@@ -6,7 +6,7 @@ import {
 } from '@tiptap/extension-details'
 import Document from '@tiptap/extension-document'
 import Link from '@tiptap/extension-link'
-import { TaskItem, TaskList } from '@tiptap/extension-list'
+import { TaskList } from '@tiptap/extension-list'
 import Mathematics from '@tiptap/extension-mathematics'
 import NodeRange from '@tiptap/extension-node-range'
 import Subscript from '@tiptap/extension-subscript'
@@ -21,7 +21,6 @@ import {
   Dropcursor,
   Focus,
   TrailingNode,
-  Placeholder,
   UndoRedo,
 } from '@tiptap/extensions'
 import StarterKit from '@tiptap/starter-kit'
@@ -49,8 +48,13 @@ import HorizontalRule from './horizontal-rule'
 import Iframe from './iframe'
 import { BlockImage, InlineImage } from './image'
 import Indent from './indent'
+import InsertNewline from './insert-newline'
 import LetterSpacing from './letter-spacing'
 import LineHeight from './line-height'
+import {
+  ListItemExtension as ListItem,
+  TaskItemExtension as TaskItem,
+} from './list-item'
 import Margin from './margin'
 import Mention from './mention'
 import getUsersSuggestion from './mention/suggestion'
@@ -60,6 +64,7 @@ import OfficePaste from './office-paste'
 import OptionBox from './option-box'
 import OrderedList from './ordered-list'
 import PageBreak from './page-break'
+import Placeholder from './placeholder'
 import SearchReplace from './search-replace'
 import Selection from './selection'
 import SlashCommand from './slash'
@@ -112,6 +117,40 @@ const nodeTypes = [
   'blockMath',
   'inlineMath',
 ]
+
+const getEditorContentMaxWidth = (editor) => {
+  const editorElement = editor?.view?.dom
+  if (!(editorElement instanceof HTMLElement)) {
+    return 0
+  }
+  const styles = window.getComputedStyle(editorElement)
+  const paddingLeft = Number.parseFloat(styles.paddingLeft || '0') || 0
+  const paddingRight = Number.parseFloat(styles.paddingRight || '0') || 0
+  return Math.max(0, editorElement.clientWidth - paddingLeft - paddingRight)
+}
+
+const fitImageDimensionsToWidth = (dimensions = {}, maxWidth = 0) => {
+  const width = Number(dimensions?.width || 0)
+  const height = Number(dimensions?.height || 0)
+  if (width <= 0 || height <= 0 || maxWidth <= 0 || width <= maxWidth) {
+    return dimensions
+  }
+  const nextWidth = Number(maxWidth.toFixed(2))
+  const nextHeight = Number(((height * nextWidth) / width).toFixed(2))
+  return {
+    ...dimensions,
+    width: nextWidth,
+    height: nextHeight,
+  }
+}
+
+const resolveInsertImageDimensions = async (editor, file) => {
+  const dimensions = await getImageDimensions(file)
+  return fitImageDimensionsToWidth(
+    dimensions,
+    getEditorContentMaxWidth(editor),
+  )
+}
 
 export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
   const {
@@ -181,6 +220,7 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
       selection: false,
       bulletList: false,
       orderedList: false,
+      listItem: false,
       trailingNode: false,
       listKeymap: true,
     }),
@@ -207,12 +247,10 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
     }),
     Placeholder.configure({
       showOnlyCurrent: false,
-      placeholder: ({ node, pos }) => {
-        if (node.type.name === 'heading') {
-          return pos === 0 ? t('document.headingPlaceholder') : ''
-        }
-        return String(l(doc?.placeholder || ''))
-      },
+      structure: doc.structure,
+      headingPlaceholder: ({ pos }) =>
+        pos === 0 ? t('document.headingPlaceholder') : '',
+      bodyPlaceholder: () => String(l(doc?.placeholder || '')),
     }),
     FormatPainter,
     WordWrap,
@@ -226,6 +264,7 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
     NodeAlign,
     CommentAnchor,
     LetterSpacing,
+    ListItem,
     TaskItem.configure({ nested: true }),
     LineHeight,
     SearchReplace,
@@ -269,6 +308,7 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
 
     // 其他
     Selection,
+    InsertNewline,
     NodeRange,
     NodeSelect,
     TableOfContents.configure({
@@ -290,7 +330,7 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
         )
         const scrollTop = pageContainer?.scrollTop || 0
         for (const file of files) {
-          const dimensions = await getImageDimensions(file)
+          const dimensions = await resolveInsertImageDimensions(editor, file)
           editor.commands.insertFile({
             file,
             uploadFileMap: uploadFileMap.value,
@@ -308,7 +348,7 @@ export const getDefaultExtensions = ({ container, options, uploadFileMap }) => {
       },
       async onDrop(editor, files, pos) {
         for (const file of files) {
-          const dimensions = await getImageDimensions(file)
+          const dimensions = await resolveInsertImageDimensions(editor, file)
           editor.commands.insertFile({
             file,
             uploadFileMap: uploadFileMap.value,

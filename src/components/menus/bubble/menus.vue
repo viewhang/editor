@@ -17,8 +17,9 @@
   </template>
   <template
     v-else-if="
-      (is('image') && !attrs('image').error) ||
-      (is('inlineImage') && !attrs('inlineImage').error)
+      ((is('image') && !attrs('image').error) ||
+        (is('inlineImage') && !attrs('inlineImage').error)) &&
+      isNodeSelection()
     "
   >
     <template v-if="!isViewerMode">
@@ -26,11 +27,15 @@
       <menus-toolbar-base-align-center />
       <menus-toolbar-base-align-right />
       <div class="umo-bubble-menu-divider"></div>
-      <menus-bubble-image-flip />
       <menus-bubble-image-proportion />
       <menus-bubble-image-draggable />
+      <menus-bubble-image-title v-if="is('image')" />
+      <menus-bubble-image-crop v-if="is('image')" />
+      <div class="umo-bubble-menu-divider"></div>
+      <menus-bubble-image-flip />
       <menus-bubble-image-rotate />
       <menus-bubble-image-reset />
+      <menus-bubble-image-reset-all />
       <div class="umo-bubble-menu-divider"></div>
     </template>
     <menus-bubble-image-preview
@@ -142,10 +147,13 @@
       is('pageBreak') ||
       is('horizontalRule') ||
       is('codeBlock') ||
-      attrs('image').error
+      attrs('image').error ||
+      attrs('inlineImage').error
     "
   >
-    <!-- <menus-bubble-node-delete /> -->
+    <menus-bubble-node-delete
+      v-if="!isViewerMode && (attrs('image').error || attrs('inlineImage').error)"
+    />
   </template>
   <template v-else-if="!isViewerMode">
     <menus-toolbar-base-font-size :select="false" />
@@ -185,6 +193,7 @@
 </template>
 
 <script setup>
+import { NodeSelection, TextSelection } from '@tiptap/pm/state'
 import { CellSelection } from '@tiptap/pm/tables'
 import {
   getBubbleNodeAttributes,
@@ -210,6 +219,8 @@ const is = (type) => {
 
   return isBubbleNodeActive(editorIns, type)
 }
+const isNodeSelection = () =>
+  editor.value?.state.selection instanceof NodeSelection
 const attrs = (type) => {
   return getBubbleNodeAttributes(editor.value, type)
 }
@@ -273,7 +284,7 @@ const getCurrentNode = (type) => {
   width: 1px;
   border-right: solid 1px var(--umo-border-color-light);
   height: 16px;
-  margin: 0 10px 0 5px;
+  margin: 0 5px 0 0;
   &:last-child:is(.umo-bubble-menu-divider) {
     display: none;
   }

@@ -202,12 +202,15 @@
     "template": "Template",
     "textBox": "Text Box",
     "toc": "Document Map",
+    "newline": "Insert New Line",
     "video": "Video",
     "web": {
       "text": "Web Page",
       "insert": "Insert",
       "title": "Insert Web Page",
       "tip": "Some web pages may not support embedding.",
+      "invalidUrl": "Please enter a valid web address or confirm the link format for the selected platform.",
+      "insertError": "Failed to insert the web page. Please check the link and try again.",
       "type": "Link Type:",
       "url": "Page URL:",
       "placeholder": "Enter a web address, starting with http:// or https://"
@@ -411,13 +414,49 @@
     "signature": {
       "text": "E-Signature",
       "title": "Insert Electronic Signature",
+      "tabs": {
+        "online": "Sign Online",
+        "select": "Choose Signature"
+      },
       "clear": "Clear",
       "lineWidth": "Pen Thickness",
       "lineColor": "Pen Color",
       "smooth": "Show Brush Strokes",
       "reset": "Reset Options",
       "tip": "Please sign in the this area",
-      "notEmpty": "No signature detected"
+      "notEmpty": "No signature detected",
+      "selectLocal": "Upload Signature Image",
+      "reselect": "Choose Another",
+      "selectEmpty": "Please choose a signature image first",
+      "cropTitle": "Crop Signature",
+      "cropTip": "Drag the crop box and crop area box to adjust the visible area.",
+      "fileSize": "File Size",
+      "imageSize": "Image Dimensions",
+      "unknownDimensions": "Unknown dimensions",
+      "cropFailed": "Failed to crop the signature image"
+    },
+    "stamp": {
+      "text": "E-Stamp",
+      "title": "Insert Stamp",
+      "presetTitle": "Stamp Size Presets",
+      "presets": {
+        "company": "Company Seal",
+        "contract": "Contract Seal",
+        "finance": "Financial Seal",
+        "invoice": "Invoice Seal",
+        "legal": "Legal Representative Seal",
+        "customs": "Customs Declaration Seal",
+        "other": "Other"
+      },
+      "previewTitle": "Preview Stamp",
+      "previewTip": "Drag the crop box and crop area box to adjust the visible area.",
+      "selectLocal": "Upload Stamp Image",
+      "reselect": "Choose Another",
+      "selectEmpty": "Please choose a stamp image first",
+      "fileSize": "File Size",
+      "imageSize": "Image Dimensions",
+      "unknownDimensions": "Unknown dimensions",
+      "notEmpty": "Please upload a stamp image first"
     }
   },
   "page": {
@@ -512,6 +551,13 @@
       "text": "Numbered List",
       "property": "List Properties",
       "startAt": "Starting Number:",
+      "continuePrevious": "Continue Previous Numbering",
+      "startNew": "Start New List",
+      "changeStart": "Set Numbering Value",
+      "numberType": "Number Type",
+      "startValue": "Numbering Value",
+      "apply": "Apply",
+      "cancel": "Cancel",
       "decimal": "Numbers",
       "decimalLeadingZero": "Numbers with Leading Zero",
       "lowerRoman": "Lowercase Roman Numerals",
@@ -564,13 +610,18 @@
       "download": "Download File"
     },
     "image": {
+      "crop": "Crop Image",
+      "applyCrop": "Apply Crop",
+      "cropFailed": "Failed to crop image",
       "open": "Open in a new window",
       "draggable": "Image Floating",
       "flipX": "Flip Horizontally",
       "flipY": "Flip Vertically",
       "preview": "Preview Image",
       "proportion": "Lock Image Aspect Ratio",
+      "title": "Show Image Description",
       "reset": "Reset Image Position",
+      "resetAll": "Reset All Settings",
       "rotateCC": "Rotate Counter-Clockwise 90°",
       "rotateC": "Rotate Clockwise 90°",
       "convertToNode": "Convert to Block Image",
@@ -742,7 +793,8 @@
     },
     "image": {
       "loading": "Loading image...",
-      "error": "Image load failed"
+      "error": "Image load failed",
+      "altPlaceholder": "enter image description"
     },
     "textBox": {
       "tip": "Double-click to edit"
@@ -750,8 +802,11 @@
   },
   "file": {
     "uploading": "Uploading file...",
+    "preview": "Preview File",
     "download": "Download File",
     "limit": "File \"{filename}\" exceeds the limit of {size}MB",
+    "unknownName": "Unknown Name",
+    "unknownSize": "Unknown Size",
     "notAllow": {
       "title": "Error Message",
       "message": "Insertion of this file type is not allowed in the current document."
@@ -761,6 +816,7 @@
     "placeholder": "Please enter content"
   },
   "mention": {
+    "loading": "Searching",
     "noResult": "No result"
   },
   "save": {
@@ -846,6 +902,8 @@
   },
   "officePaste": {
     "imagePlaceholder": "[Image]",
+    "processing": "Processing pasted content…",
+    "failed": "Failed to process the pasted content",
     "dialog": {
       "title": "Notice",
       "body": "The clipboard content has been pasted, but included images were not processed correctly. Please manually copy and replace the unprocessed images in the document."

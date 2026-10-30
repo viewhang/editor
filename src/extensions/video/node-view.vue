@@ -4,7 +4,7 @@
     ref="containerRef"
     class="umo-node-view"
     :style="nodeStyle"
-    @click.capture="editor?.commands.setNodeSelection(getPos())"
+    @click.capture="clickCapture"
   >
     <div
       class="umo-node-container umo-node-video"
@@ -23,7 +23,7 @@
         :max-width="maxWidth"
         :max-height="maxHeight"
         :equal-proportion="true"
-        :disabled="options.document?.readOnly"
+        :disabled="!editor?.isEditable || isLockedNode"
         @resize="onResize"
         @focus="selected = true"
       >
@@ -49,12 +49,15 @@
 import { nodeViewProps, NodeViewWrapper } from '@tiptap/vue-3'
 import Drager from 'es-drager'
 
+import { safeNodePos, selectNodePos } from '@/utils/position'
+import { scheduleFileDelete, srcAttrs, videoNodeTypes } from '@/utils/file'
 import { player } from '@/utils/player'
 
 import { updateAttributesWithoutHistory } from '../file'
 
 const props = defineProps(nodeViewProps)
 const attrs = $computed(() => props.node.attrs)
+const isLockedNode = $computed(() => !!attrs.lockedNode)
 const { updateAttributes, getPos } = props
 const options = inject('options')
 const editor = inject('editor')
@@ -70,6 +73,10 @@ let playerShow = $ref(false)
 let maxWidth = $ref(0)
 let maxHeight = $ref(0)
 let resolvedSrc = $ref(null)
+
+const clickCapture = () => {
+  selectNodePos(editor.value, getPos)
+}
 
 const nodeStyle = $computed(() => {
   const { nodeAlign, margin } = attrs
@@ -111,10 +118,11 @@ onMounted(async () => {
       const result = await options.value?.onFileUpload?.(file)
       const { id, url } = result
       if (containerRef.value) {
+        const pos = safeNodePos(getPos, editor.value?.state)
         updateAttributesWithoutHistory(
           editor.value,
           { id, src: url, uploaded: true },
-          getPos(),
+          pos,
         )
       }
       uploadFileMap.value.delete(attrs.id)
@@ -126,6 +134,7 @@ onMounted(async () => {
 })
 const onLoad = () => {
   if (attrs.width === null) {
+    if (!videoRef.value) return
     const { clientWidth = 0, clientHeight = 0 } = videoRef
     maxWidth = containerRef.value?.$el.clientWidth
     const ratio = clientWidth / clientHeight
@@ -141,6 +150,7 @@ const onLoad = () => {
   }
 }
 const onResize = ({ width, height }) => {
+  if (isLockedNode) return
   updateAttributes({ width, height })
 }
 
@@ -154,11 +164,20 @@ watch(
 
 onBeforeUnmount(() => {
   playerInstance?.destroy?.()
-  setTimeout(() => {
-    if (editor.value.isDestroyed) return
-    fileResolver.clear({ ...attrs, nodeType: 'video' })
-    options.value.onFileDelete(attrs.id, attrs.src, `video:${attrs.type}`)
-  }, 500)
+  fileResolver.clear({ ...attrs, nodeType: 'video' })
+  scheduleFileDelete({
+    editor,
+    options,
+    deleteTypePrefix: 'video',
+    fileNode: {
+      id: attrs.id,
+      src: attrs.src,
+      type: attrs.type,
+      position: safeNodePos(getPos, editor.value?.state),
+    },
+    nodeTypes: videoNodeTypes,
+    matchSourceAttrs: srcAttrs,
+  })
 })
 
 onClickOutside(containerRef, () => {
